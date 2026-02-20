@@ -8,7 +8,7 @@ export default function DataHealth({ data }) {
     playerRows,
     teamMatchRows,
     allMatches,
-    allPlayerRows,
+    // allPlayerRows available for future views
     unresolvedPlayers,
     unlinkedRoles,
     orphanedRoles,

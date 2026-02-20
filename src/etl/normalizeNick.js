@@ -23,8 +23,6 @@ export function buildNickNormalizer(patterns) {
     let result = nick;
 
     for (const re of compiled) {
-      const src = re.source;
-
       // Apply the pattern — works for both prefix patterns and the pipe pattern.
       // Prefix patterns (^CUBA etc.) strip the matched prefix.
       // Pipe pattern (\\|) deletes the pipe character: ph0en|X → ph0enX.

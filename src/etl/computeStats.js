@@ -31,7 +31,7 @@ function computePlayerStats(playerRows, matches) {
 /**
  * Build team match rows for each team appearance in each match.
  */
-function buildTeamMatchRows(matches, playerRows, teamConfig) {
+function buildTeamMatchRows(matches, playerRows) {
   const matchSideMap = new Map();
   for (const p of playerRows) {
     const key = `${p.match_id}::${p.side}`;
@@ -242,7 +242,7 @@ export function computeStats(matches, playerRows, teamConfig) {
   computePlayerStats(playerRows, matches);
 
   // 2. Team match rows
-  const teamMatchRows = buildTeamMatchRows(matches, playerRows, teamConfig);
+  const teamMatchRows = buildTeamMatchRows(matches, playerRows);
 
   // 3. Pair stats for focus team
   const pairStats = buildPairStats(teamMatchRows, teamConfig.focus_team);
