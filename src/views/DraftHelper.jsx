@@ -4,6 +4,7 @@
  */
 
 import { useState, useMemo } from 'react';
+import ExportButton from '../components/ExportButton.jsx';
 
 const MIN_H2H = 2;
 
@@ -114,7 +115,7 @@ export default function DraftHelper({ data }) {
     return sorted.length > 0 ? { map: sorted[0].map, pct: sorted[0].global.winPct } : null;
   }, [tableRows]);
 
-  // Veto: opponent's best map (our lowest win% vs them)
+  // Veto/Avoid: opponent's best map against us (our lowest win% vs them)
   const veto = useMemo(() => {
     if (!selectedOpp) return null;
     const candidates = tableRows
@@ -127,6 +128,42 @@ export default function DraftHelper({ data }) {
     if (globalSorted.length > 0) return { map: globalSorted[0].map, pct: globalSorted[0].global.winPct, source: 'global' };
     return null;
   }, [selectedOpp, tableRows]);
+
+  // Ban: opponent's highest global win% map (from their perspective across all H2H)
+  // We compute the opponent's map stats from ALL their H2H matches against us (inverted: our losses = their wins)
+  const ban = useMemo(() => {
+    if (!selectedOpp) return null;
+    // Opponent's map performance vs us (their win = our loss, from h2hMapStats)
+    const candidates = tableRows
+      .filter((r) => r.h2hGames >= MIN_H2H)
+      .map((r) => ({ map: r.map, oppWinPct: 100 - r.h2hWinPct, games: r.h2hGames }))
+      .sort((a, b) => b.oppWinPct - a.oppWinPct);
+    if (candidates.length > 0 && candidates[0].oppWinPct > 50) {
+      return { map: candidates[0].map, pct: candidates[0].oppWinPct };
+    }
+    return null;
+  }, [selectedOpp, tableRows]);
+
+  // Text summary
+  const summaryText = useMemo(() => {
+    if (!selectedOpp) return '';
+    const parts = [];
+    if (bestPick) {
+      const src = bestPick.source === 'global' ? ', global' : ` vs ${selectedOpp}`;
+      parts.push(`Pick: ${bestPick.map} (${bestPick.pct.toFixed(0)}%${src})`);
+    }
+    if (veto) {
+      const src = veto.source === 'global' ? ', global' : ` vs ${selectedOpp}`;
+      parts.push(`Avoid: ${veto.map} (${veto.pct.toFixed(0)}%${src})`);
+    }
+    if (ban) {
+      parts.push(`Ban: ${ban.map} (${ban.pct.toFixed(0)}% opp win rate)`);
+    }
+    if (safePick) {
+      parts.push(`Safe fallback: ${safePick.map} (${safePick.pct.toFixed(0)}% global)`);
+    }
+    return parts.join('. ') + '.';
+  }, [selectedOpp, bestPick, veto, ban, safePick]);
 
   function recColor(rec) {
     if (rec === 'pick') return 'var(--color-win)';
@@ -141,14 +178,31 @@ export default function DraftHelper({ data }) {
     return '';
   }
 
+  // Export data (after recLabel defined so compiler can inline)
+  const exportData = tableRows.map((r) => ({
+    map: r.map,
+    global_win_pct: r.global.winPct.toFixed(1),
+    global_games: r.global.games,
+    global_record: `${r.global.wins}W-${r.global.losses}L`,
+    h2h_win_pct: r.h2hWinPct !== null ? r.h2hWinPct.toFixed(1) : '',
+    h2h_games: r.h2hGames || '',
+    h2h_record: r.h2h ? `${r.h2h.wins}W-${r.h2h.losses}L` : '',
+    recommendation: recLabel(r.rec),
+  }));
+
   return (
     <div className="p-6 max-w-4xl mx-auto">
-      <h2
-        className="text-2xl font-bold mb-6"
-        style={{ color: 'var(--color-accent)' }}
-      >
-        Draft Helper
-      </h2>
+      <div className="flex items-center justify-between mb-6">
+        <h2
+          className="text-2xl font-bold"
+          style={{ color: 'var(--color-accent)' }}
+        >
+          Draft Helper
+        </h2>
+        {selectedOpp && (
+          <ExportButton data={exportData} filename={`wb_draft_vs_${selectedOpp.toLowerCase().replace(/\s+/g, '_')}.csv`} />
+        )}
+      </div>
 
       {/* Opponent selector */}
       <div className="mb-6">
@@ -177,7 +231,7 @@ export default function DraftHelper({ data }) {
 
       {/* Recommendations cards */}
       {selectedOpp && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <RecCard
             label="Best Pick"
             subtitle="Highest win% vs opponent"
@@ -194,13 +248,31 @@ export default function DraftHelper({ data }) {
             color="var(--color-accent)"
           />
           <RecCard
-            label="Veto"
-            subtitle="Their best map vs you"
+            label="Avoid"
+            subtitle="Your lowest win% vs them"
             map={veto?.map}
             pct={veto?.pct}
             note={veto?.source === 'global' ? 'Based on global (no H2H data)' : null}
             color="var(--color-loss)"
           />
+          <RecCard
+            label="Ban"
+            subtitle="Their highest win% map"
+            map={ban?.map}
+            pct={ban?.pct}
+            pctLabel="opp win rate"
+            color="var(--color-loss)"
+          />
+        </div>
+      )}
+
+      {/* Text summary */}
+      {selectedOpp && summaryText && (
+        <div
+          className="rounded-lg p-3 mb-6 text-sm"
+          style={{ backgroundColor: 'var(--color-bg)', color: 'var(--color-text)' }}
+        >
+          {summaryText}
         </div>
       )}
 
@@ -324,7 +396,7 @@ export default function DraftHelper({ data }) {
   );
 }
 
-function RecCard({ label, subtitle, map, pct, note, color }) {
+function RecCard({ label, subtitle, map, pct, pctLabel, note, color }) {
   return (
     <div
       className="rounded-lg p-4"
@@ -342,7 +414,7 @@ function RecCard({ label, subtitle, map, pct, note, color }) {
             {map}
           </p>
           <p className="text-sm font-medium" style={{ color }}>
-            {pct.toFixed(0)}% win rate
+            {pct.toFixed(0)}% {pctLabel || 'win rate'}
           </p>
           {note && (
             <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>{note}</p>

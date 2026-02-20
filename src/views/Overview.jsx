@@ -1,7 +1,6 @@
 /**
  * Overview view — team identity card for the focus team (wAnnaBees).
- * Shows overall record, avg DPM, avg cap diff, close game record,
- * damage concentration (HHI), tempo identity, date range.
+ * Shows overall record, close games deep-dive, tempo identity, opponent breakdown.
  * Uses scopedLoose predicate by default.
  */
 
@@ -30,8 +29,8 @@ export default function Overview({ data, onNavigateMatchLog }) {
 
   // Close games: decided by ±1 cap
   const closeGames = focusRows.filter((r) => Math.abs(r.cap_diff) <= 1 && r.result !== 'D');
-  const closeWins = closeGames.filter((r) => r.result === 'W').length;
-  const closeLosses = closeGames.filter((r) => r.result === 'L').length;
+  const closeWins = closeGames.filter((r) => r.result === 'W');
+  const closeLosses = closeGames.filter((r) => r.result === 'L');
 
   // Avg HHI
   const avgHhi = total > 0
@@ -44,14 +43,26 @@ export default function Overview({ data, onNavigateMatchLog }) {
     ? `${dates[0]} to ${dates[dates.length - 1]}`
     : 'N/A';
 
-  // Tempo identity stats
-  const avgDuration = total > 0
-    ? focusRows.reduce((s, r) => s + r.duration_min, 0) / total
-    : 0;
-  const blowoutWins = focusRows.filter((r) => r.result === 'W' && r.cap_diff >= 3).length;
-  const blowoutLosses = focusRows.filter((r) => r.result === 'L' && r.cap_diff <= -3).length;
+  // --- Close games deep-dive ---
+  const avgNetDmgCloseW = closeWins.length > 0
+    ? closeWins.reduce((s, r) => s + r.avg_net_damage * 4, 0) / closeWins.length : 0;
+  const avgNetDmgCloseL = closeLosses.length > 0
+    ? closeLosses.reduce((s, r) => s + r.avg_net_damage * 4, 0) / closeLosses.length : 0;
+  const avgHhiCloseW = closeWins.length > 0
+    ? closeWins.reduce((s, r) => s + r.damage_hhi, 0) / closeWins.length : 0;
+  const avgHhiCloseL = closeLosses.length > 0
+    ? closeLosses.reduce((s, r) => s + r.damage_hhi, 0) / closeLosses.length : 0;
 
-  // Close games per map (±1 cap, non-draw)
+  // Most common lineups in close losses
+  const closeLossLineups = {};
+  for (const r of closeLosses) {
+    closeLossLineups[r.lineup_key] = (closeLossLineups[r.lineup_key] || 0) + 1;
+  }
+  const topCloseLossLineups = Object.entries(closeLossLineups)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 2);
+
+  // Close games per map
   const closeByMap = {};
   for (const r of closeGames) {
     if (!closeByMap[r.map]) closeByMap[r.map] = { wins: 0, losses: 0 };
@@ -61,6 +72,67 @@ export default function Overview({ data, onNavigateMatchLog }) {
   const closeMapRows = Object.entries(closeByMap)
     .map(([map, s]) => ({ map, ...s, total: s.wins + s.losses }))
     .sort((a, b) => b.total - a.total);
+
+  // Close games per opponent
+  const closeByOpp = {};
+  for (const r of closeGames) {
+    const opp = r.opponent_team || 'Unknown';
+    if (!closeByOpp[opp]) closeByOpp[opp] = { wins: 0, losses: 0 };
+    if (r.result === 'W') closeByOpp[opp].wins++;
+    if (r.result === 'L') closeByOpp[opp].losses++;
+  }
+  const closeOppRows = Object.entries(closeByOpp)
+    .map(([opp, s]) => ({ opp, ...s, total: s.wins + s.losses }))
+    .sort((a, b) => b.total - a.total);
+
+  // --- Tempo identity stats ---
+  const avgDuration = total > 0
+    ? focusRows.reduce((s, r) => s + r.duration_min, 0) / total : 0;
+  const winRows = focusRows.filter((r) => r.result === 'W');
+  const lossRows = focusRows.filter((r) => r.result === 'L');
+  const avgDurWin = winRows.length > 0
+    ? winRows.reduce((s, r) => s + r.duration_min, 0) / winRows.length : 0;
+  const avgDurLoss = lossRows.length > 0
+    ? lossRows.reduce((s, r) => s + r.duration_min, 0) / lossRows.length : 0;
+
+  const blowoutWinRows = focusRows.filter((r) => r.result === 'W' && r.cap_diff >= 3);
+  const blowoutLossRows = focusRows.filter((r) => r.result === 'L' && r.cap_diff <= -3);
+
+  // Blowout maps
+  const blowoutWinMaps = {};
+  for (const r of blowoutWinRows) blowoutWinMaps[r.map] = (blowoutWinMaps[r.map] || 0) + 1;
+  const blowoutLossMaps = {};
+  for (const r of blowoutLossRows) blowoutLossMaps[r.map] = (blowoutLossMaps[r.map] || 0) + 1;
+
+  // Score distribution
+  const scoreDist = {};
+  for (const r of focusRows) {
+    const hi = Math.max(r.score_for, r.score_against);
+    const lo = Math.min(r.score_for, r.score_against);
+    const key = `${hi}-${lo}`;
+    if (!scoreDist[key]) scoreDist[key] = { wins: 0, losses: 0, draws: 0 };
+    if (r.result === 'W') scoreDist[key].wins++;
+    else if (r.result === 'L') scoreDist[key].losses++;
+    else scoreDist[key].draws++;
+  }
+  const scoreDistRows = Object.entries(scoreDist)
+    .map(([score, s]) => ({ score, ...s, total: s.wins + s.losses + s.draws }))
+    .sort((a, b) => b.total - a.total);
+
+  // Season halves
+  const sortedDates = [...dates];
+  const midIdx = Math.floor(sortedDates.length / 2);
+  const midDate = sortedDates[midIdx] || '';
+  const firstHalf = focusRows.filter((r) => r.date_local < midDate);
+  const secondHalf = focusRows.filter((r) => r.date_local >= midDate);
+  const halfStats = (rows) => {
+    const w = rows.filter((r) => r.result === 'W').length;
+    const l = rows.filter((r) => r.result === 'L').length;
+    const g = rows.length;
+    return { games: g, wins: w, losses: l, winPct: g > 0 ? (w / g) * 100 : 0 };
+  };
+  const h1 = halfStats(firstHalf);
+  const h2 = halfStats(secondHalf);
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
@@ -104,7 +176,7 @@ export default function Overview({ data, onNavigateMatchLog }) {
           />
           <Metric
             label="Close Games (±1)"
-            value={`${closeWins}W\u2013${closeLosses}L`}
+            value={`${closeWins.length}W\u2013${closeLosses.length}L`}
             subtitle={`${closeGames.length} total`}
           />
           <Metric
@@ -115,12 +187,32 @@ export default function Overview({ data, onNavigateMatchLog }) {
         </div>
       </div>
 
+      {/* Close Games Deep-Dive */}
+      <CloseGamesAnalysis
+        closeWinCount={closeWins.length}
+        closeLossCount={closeLosses.length}
+        avgNetDmgCloseW={avgNetDmgCloseW}
+        avgNetDmgCloseL={avgNetDmgCloseL}
+        avgHhiCloseW={avgHhiCloseW}
+        avgHhiCloseL={avgHhiCloseL}
+        topCloseLossLineups={topCloseLossLineups}
+        closeMapRows={closeMapRows}
+        closeOppRows={closeOppRows}
+      />
+
       {/* Tempo Identity */}
       <TempoIdentity
         avgDuration={avgDuration}
-        blowoutWins={blowoutWins}
-        blowoutLosses={blowoutLosses}
-        closeMapRows={closeMapRows}
+        avgDurWin={avgDurWin}
+        avgDurLoss={avgDurLoss}
+        blowoutWinRows={blowoutWinRows}
+        blowoutLossRows={blowoutLossRows}
+        blowoutWinMaps={blowoutWinMaps}
+        blowoutLossMaps={blowoutLossMaps}
+        scoreDistRows={scoreDistRows}
+        h1={h1}
+        h2={h2}
+        midDate={midDate}
       />
 
       {/* Quick opponent breakdown */}
@@ -129,7 +221,117 @@ export default function Overview({ data, onNavigateMatchLog }) {
   );
 }
 
-function TempoIdentity({ avgDuration, blowoutWins, blowoutLosses, closeMapRows }) {
+function CloseGamesAnalysis({
+  closeWinCount, closeLossCount,
+  avgNetDmgCloseW, avgNetDmgCloseL,
+  avgHhiCloseW, avgHhiCloseL,
+  topCloseLossLineups, closeMapRows, closeOppRows,
+}) {
+  if (closeWinCount + closeLossCount === 0) return null;
+
+  return (
+    <div
+      className="rounded-lg p-4 mb-6"
+      style={{ backgroundColor: 'var(--color-surface)' }}
+    >
+      <p
+        className="text-xs uppercase tracking-wide mb-3"
+        style={{ color: 'var(--color-text-muted)' }}
+      >
+        Close Games Deep-Dive (±1 cap)
+      </p>
+
+      {/* Comparison metrics: close wins vs close losses */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+        <div>
+          <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Net Dmg (close W)</p>
+          <p className="text-lg font-bold" style={{ color: 'var(--color-win)' }}>
+            {avgNetDmgCloseW >= 0 ? '+' : ''}{avgNetDmgCloseW.toFixed(0)}
+          </p>
+        </div>
+        <div>
+          <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Net Dmg (close L)</p>
+          <p className="text-lg font-bold" style={{ color: 'var(--color-loss)' }}>
+            {avgNetDmgCloseL >= 0 ? '+' : ''}{avgNetDmgCloseL.toFixed(0)}
+          </p>
+        </div>
+        <div>
+          <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>HHI (close W)</p>
+          <p className="text-lg font-bold">{avgHhiCloseW.toFixed(3)}</p>
+        </div>
+        <div>
+          <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>HHI (close L)</p>
+          <p className="text-lg font-bold">{avgHhiCloseL.toFixed(3)}</p>
+        </div>
+      </div>
+
+      {/* Lineup(s) in close losses */}
+      {topCloseLossLineups.length > 0 && (
+        <div className="mb-4">
+          <p className="text-xs uppercase tracking-wide mb-1" style={{ color: 'var(--color-text-muted)' }}>
+            Most Common Lineup in Close Losses
+          </p>
+          {topCloseLossLineups.map(([key, count]) => (
+            <p key={key} className="text-sm">
+              <span style={{ color: 'var(--color-loss)' }}>{key.split('+').join(' \u00B7 ')}</span>
+              <span className="text-xs ml-2" style={{ color: 'var(--color-text-muted)' }}>({count})</span>
+            </p>
+          ))}
+        </div>
+      )}
+
+      {/* Per-map close game W-L */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {closeMapRows.length > 0 && (
+          <div>
+            <p className="text-xs uppercase tracking-wide mb-2" style={{ color: 'var(--color-text-muted)' }}>
+              By Map
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {closeMapRows.map((m) => (
+                <span key={m.map} className="text-sm px-2 py-1 rounded" style={{ backgroundColor: 'var(--color-bg)' }}>
+                  <span style={{ color: 'var(--color-text-muted)' }}>{m.map}</span>
+                  {' '}
+                  <span style={{ color: 'var(--color-win)' }}>{m.wins}W</span>
+                  {'\u2013'}
+                  <span style={{ color: 'var(--color-loss)' }}>{m.losses}L</span>
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+        {closeOppRows.length > 0 && (
+          <div>
+            <p className="text-xs uppercase tracking-wide mb-2" style={{ color: 'var(--color-text-muted)' }}>
+              By Opponent
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {closeOppRows.map((o) => (
+                <span key={o.opp} className="text-sm px-2 py-1 rounded" style={{ backgroundColor: 'var(--color-bg)' }}>
+                  <span style={{ color: 'var(--color-text-muted)' }}>{o.opp}</span>
+                  {' '}
+                  <span style={{ color: 'var(--color-win)' }}>{o.wins}W</span>
+                  {'\u2013'}
+                  <span style={{ color: 'var(--color-loss)' }}>{o.losses}L</span>
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function TempoIdentity({
+  avgDuration, avgDurWin, avgDurLoss,
+  blowoutWinRows, blowoutLossRows,
+  blowoutWinMaps, blowoutLossMaps,
+  scoreDistRows, h1, h2, midDate,
+}) {
+  const topBlowoutWinMaps = Object.entries(blowoutWinMaps).sort((a, b) => b[1] - a[1]).slice(0, 3);
+  const topBlowoutLossMaps = Object.entries(blowoutLossMaps).sort((a, b) => b[1] - a[1]).slice(0, 3);
+
   return (
     <div
       className="rounded-lg p-4 mb-6"
@@ -142,45 +344,98 @@ function TempoIdentity({ avgDuration, blowoutWins, blowoutLosses, closeMapRows }
         Tempo Identity
       </p>
 
-      <div className="grid grid-cols-3 gap-4 mb-4">
+      {/* Duration + blowouts */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
         <div>
           <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Avg Duration</p>
           <p className="text-lg font-bold">{avgDuration.toFixed(1)} min</p>
         </div>
         <div>
-          <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Blowout Wins (3+)</p>
-          <p className="text-lg font-bold" style={{ color: 'var(--color-win)' }}>{blowoutWins}</p>
+          <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Dur in Wins</p>
+          <p className="text-lg font-bold" style={{ color: 'var(--color-win)' }}>{avgDurWin.toFixed(1)} min</p>
         </div>
         <div>
-          <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Blowout Losses (3+)</p>
-          <p className="text-lg font-bold" style={{ color: 'var(--color-loss)' }}>{blowoutLosses}</p>
+          <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Dur in Losses</p>
+          <p className="text-lg font-bold" style={{ color: 'var(--color-loss)' }}>{avgDurLoss.toFixed(1)} min</p>
+        </div>
+        <div>
+          <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Blowouts (3+)</p>
+          <p className="text-lg font-bold">
+            <span style={{ color: 'var(--color-win)' }}>{blowoutWinRows.length}W</span>
+            {'\u2013'}
+            <span style={{ color: 'var(--color-loss)' }}>{blowoutLossRows.length}L</span>
+          </p>
         </div>
       </div>
 
-      {closeMapRows.length > 0 && (
-        <>
-          <p
-            className="text-xs uppercase tracking-wide mb-2"
-            style={{ color: 'var(--color-text-muted)' }}
-          >
-            Close Games by Map (±1 cap)
+      {/* Blowout maps */}
+      {(topBlowoutWinMaps.length > 0 || topBlowoutLossMaps.length > 0) && (
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          {topBlowoutWinMaps.length > 0 && (
+            <div>
+              <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Blowout win maps</p>
+              <p className="text-sm">
+                {topBlowoutWinMaps.map(([m, c]) => `${m}(${c})`).join(', ')}
+              </p>
+            </div>
+          )}
+          {topBlowoutLossMaps.length > 0 && (
+            <div>
+              <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Blowout loss maps</p>
+              <p className="text-sm">
+                {topBlowoutLossMaps.map(([m, c]) => `${m}(${c})`).join(', ')}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Score distribution */}
+      {scoreDistRows.length > 0 && (
+        <div className="mb-4">
+          <p className="text-xs uppercase tracking-wide mb-2" style={{ color: 'var(--color-text-muted)' }}>
+            Score Distribution
           </p>
-          <div className="flex flex-wrap gap-3">
-            {closeMapRows.map((m) => (
-              <span
-                key={m.map}
-                className="text-sm px-2 py-1 rounded"
-                style={{ backgroundColor: 'var(--color-bg)' }}
-              >
-                <span style={{ color: 'var(--color-text-muted)' }}>{m.map}</span>
-                {' '}
-                <span style={{ color: 'var(--color-win)' }}>{m.wins}W</span>
-                {'\u2013'}
-                <span style={{ color: 'var(--color-loss)' }}>{m.losses}L</span>
+          <div className="flex flex-wrap gap-2">
+            {scoreDistRows.map((s) => (
+              <span key={s.score} className="text-sm px-2 py-1 rounded" style={{ backgroundColor: 'var(--color-bg)' }}>
+                <span style={{ color: 'var(--color-text-muted)' }}>{s.score}</span>
+                {s.wins > 0 && <span style={{ color: 'var(--color-win)' }}> {s.wins}W</span>}
+                {s.losses > 0 && <span style={{ color: 'var(--color-loss)' }}> {s.losses}L</span>}
+                {s.draws > 0 && <span style={{ color: 'var(--color-draw)' }}> {s.draws}D</span>}
               </span>
             ))}
           </div>
-        </>
+        </div>
+      )}
+
+      {/* Season halves trend */}
+      {h1.games > 0 && h2.games > 0 && (
+        <div>
+          <p className="text-xs uppercase tracking-wide mb-2" style={{ color: 'var(--color-text-muted)' }}>
+            Season Trend (split at {midDate})
+          </p>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="px-3 py-2 rounded" style={{ backgroundColor: 'var(--color-bg)' }}>
+              <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>First Half</p>
+              <p className="text-sm font-bold">
+                {h1.wins}W{'\u2013'}{h1.losses}L
+                <span className="ml-1" style={{ color: h1.winPct >= 50 ? 'var(--color-win)' : 'var(--color-loss)' }}>
+                  ({h1.winPct.toFixed(0)}%)
+                </span>
+              </p>
+            </div>
+            <div className="px-3 py-2 rounded" style={{ backgroundColor: 'var(--color-bg)' }}>
+              <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Second Half</p>
+              <p className="text-sm font-bold">
+                {h2.wins}W{'\u2013'}{h2.losses}L
+                <span className="ml-1" style={{ color: h2.winPct >= 50 ? 'var(--color-win)' : 'var(--color-loss)' }}>
+                  ({h2.winPct.toFixed(0)}%)
+                </span>
+              </p>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
