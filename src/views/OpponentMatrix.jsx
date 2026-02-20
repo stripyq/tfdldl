@@ -9,7 +9,7 @@ import ExportButton from '../components/ExportButton.jsx';
 
 const FOCUS = 'wAnnaBees';
 
-export default function OpponentMatrix({ data }) {
+export default function OpponentMatrix({ data, onNavigateMatchLog }) {
   const { teamMatchRows } = data;
 
   const { maps, opponents, matrix, globalMapWin, totalGames } = useMemo(() => {
@@ -184,7 +184,11 @@ export default function OpponentMatrix({ data }) {
                             backgroundColor: cellBg(pct),
                           }}
                         >
-                          <span className="font-semibold" style={{ color: 'var(--color-text)' }}>
+                          <span
+                            className="font-semibold stat-link"
+                            style={{ color: 'var(--color-text)' }}
+                            onClick={() => onNavigateMatchLog?.({ map, opponent: opp, dataset: 'h2h' })}
+                          >
                             {cell.wins}-{cell.losses}
                           </span>
                           <br />

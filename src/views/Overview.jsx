@@ -7,7 +7,7 @@
 
 import ExportButton from '../components/ExportButton.jsx';
 
-export default function Overview({ data }) {
+export default function Overview({ data, onNavigateMatchLog }) {
   const { teamMatchRows } = data;
 
   // Focus team rows with loose qualification
@@ -123,7 +123,7 @@ export default function Overview({ data }) {
       )}
 
       {/* Quick opponent breakdown */}
-      <OpponentBreakdown rows={focusRows} />
+      <OpponentBreakdown rows={focusRows} onNavigateMatchLog={onNavigateMatchLog} />
     </div>
   );
 }
@@ -149,7 +149,7 @@ function Metric({ label, value, subtitle, color }) {
   );
 }
 
-function OpponentBreakdown({ rows }) {
+function OpponentBreakdown({ rows, onNavigateMatchLog }) {
   const oppMap = {};
   for (const r of rows) {
     const opp = r.opponent_team || 'Unknown';
@@ -199,13 +199,30 @@ function OpponentBreakdown({ rows }) {
                 {o.name}
               </td>
               <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)' }}>
-                {o.games}
+                <span
+                  className="stat-link"
+                  onClick={() => onNavigateMatchLog?.({ opponent: o.name })}
+                >
+                  {o.games}
+                </span>
               </td>
               <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)' }}>
-                {o.wins}
+                <span
+                  className="stat-link"
+                  style={{ color: 'var(--color-win)' }}
+                  onClick={() => onNavigateMatchLog?.({ opponent: o.name, result: 'W' })}
+                >
+                  {o.wins}
+                </span>
               </td>
               <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)' }}>
-                {o.losses}
+                <span
+                  className="stat-link"
+                  style={{ color: 'var(--color-loss)' }}
+                  onClick={() => onNavigateMatchLog?.({ opponent: o.name, result: 'L' })}
+                >
+                  {o.losses}
+                </span>
               </td>
               <td
                 className="py-1.5 border-b font-medium"

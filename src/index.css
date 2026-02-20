@@ -19,3 +19,23 @@ body {
   color: var(--color-text);
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
 }
+
+/* Clickable stat numbers that navigate to MatchLog */
+.stat-link {
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 2px;
+  text-decoration-color: var(--color-border);
+  transition: text-decoration-color 0.15s;
+}
+.stat-link:hover {
+  text-decoration-style: solid;
+  text-decoration-color: var(--color-accent);
+}
+
+/* Sub / outsider player badge in MatchLog expanded detail */
+.player-sub {
+  opacity: 0.6;
+  font-style: italic;
+}
