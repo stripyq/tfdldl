@@ -22,6 +22,25 @@ export default function FileUpload({ onDataLoaded, isLoading }) {
           setError('Expected a JSON array of match objects');
           return;
         }
+        if (data.length === 0) {
+          setError('File contains an empty array — no matches found');
+          return;
+        }
+        // Validate first entry has expected qllr structure
+        const sample = data[0];
+        const missing = [];
+        if (!sample.match_id) missing.push('match_id');
+        if (!sample.players && !Array.isArray(sample.players)) missing.push('players');
+        if (!sample.scores && sample.scores !== 0) missing.push('scores');
+        if (!sample.played_at) missing.push('played_at');
+        if (missing.length > 0) {
+          setError(`Not a valid qllr export — missing fields: ${missing.join(', ')}`);
+          return;
+        }
+        if (!Array.isArray(sample.players)) {
+          setError('Not a valid qllr export — "players" should be an array');
+          return;
+        }
         onDataLoaded(data);
       } catch {
         setError('Invalid JSON file');

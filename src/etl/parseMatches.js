@@ -36,28 +36,31 @@ function parseAccuracy(acc) {
 }
 
 /**
- * Convert UTC datetime string to UTC+1 local datetime and date-only string.
+ * Convert UTC datetime string to Europe/Zagreb local datetime and date-only string.
+ * Uses Intl.DateTimeFormat for proper DST handling (CET/CEST).
  * Input format: "2026-02-18 21:21 UTC"
  */
+const dtfDate = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Europe/Zagreb',
+  year: 'numeric', month: '2-digit', day: '2-digit',
+});
+const dtfTime = new Intl.DateTimeFormat('en-GB', {
+  timeZone: 'Europe/Zagreb',
+  hour: '2-digit', minute: '2-digit', hour12: false,
+});
+
 function toLocal(utcStr) {
   if (!utcStr) return { datetime_local: null, date_local: null };
   const cleaned = utcStr.replace(' UTC', '');
   const date = new Date(cleaned + 'Z');
   if (isNaN(date.getTime())) return { datetime_local: null, date_local: null };
 
-  // Shift to UTC+1
-  const localMs = date.getTime() + 60 * 60 * 1000;
-  const local = new Date(localMs);
-
-  const yyyy = local.getUTCFullYear();
-  const mm = String(local.getUTCMonth() + 1).padStart(2, '0');
-  const dd = String(local.getUTCDate()).padStart(2, '0');
-  const hh = String(local.getUTCHours()).padStart(2, '0');
-  const mi = String(local.getUTCMinutes()).padStart(2, '0');
+  const date_local = dtfDate.format(date); // "YYYY-MM-DD" (en-CA locale)
+  const time_local = dtfTime.format(date); // "HH:MM"
 
   return {
-    datetime_local: `${yyyy}-${mm}-${dd} ${hh}:${mi}`,
-    date_local: `${yyyy}-${mm}-${dd}`,
+    datetime_local: `${date_local} ${time_local}`,
+    date_local,
   };
 }
 

@@ -191,6 +191,7 @@ export default function OpponentMatrix({ data, onNavigateMatchLog }) {
                           >
                             {cell.wins}-{cell.losses}
                           </span>
+                          {cell.games < 3 && <span className="sample-warn" title="Small sample size">{'\u26A0'}</span>}
                           <br />
                           <span className="text-xs" style={{
                             color: dev > 10 ? 'var(--color-win)' : dev < -10 ? 'var(--color-loss)' : 'var(--color-text-muted)',

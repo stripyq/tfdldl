@@ -231,14 +231,53 @@ export function parseRoles(manualRoles, teamConfig) {
 
 /**
  * Merge parsed roles into playerRows where match_id + canonical match.
+ * Role entries may use raw nicks (e.g. "Fo_Tbh", "wB fo_tbh") so we also
+ * try normalizing through clan-tag stripping + alias lookup.
  * @param {Array} playerRows
  * @param {Array} roles - output of parseRoles
+ * @param {function} [normalizeNick] - clan-tag stripping function
+ * @param {Array} [playerRegistry] - for alias resolution fallback
  */
-export function mergeRoles(playerRows, roles) {
-  // Build lookup by match_id + canonical
+export function mergeRoles(playerRows, roles, normalizeNick, playerRegistry) {
+  // Build alias map for resolving role player names → canonical
+  let aliasMap = null;
+  if (normalizeNick && playerRegistry) {
+    aliasMap = new Map();
+    for (const entry of playerRegistry) {
+      const canon = entry.canonical.toLowerCase();
+      aliasMap.set(canon, entry.canonical);
+      const normCanon = normalizeNick(entry.canonical).toLowerCase();
+      if (normCanon) aliasMap.set(normCanon, entry.canonical);
+      if (entry.aliases) {
+        for (const alias of entry.aliases) {
+          aliasMap.set(alias.toLowerCase(), entry.canonical);
+          const normAlias = normalizeNick(alias).toLowerCase();
+          if (normAlias) aliasMap.set(normAlias, entry.canonical);
+        }
+      }
+    }
+  }
+
+  function resolveRoleName(name) {
+    if (!aliasMap) return name.toLowerCase();
+    // Try exact casefolded
+    const lower = name.toLowerCase();
+    const exact = aliasMap.get(lower);
+    if (exact) return exact.toLowerCase();
+    // Try normalized (clan-tag stripped)
+    if (normalizeNick) {
+      const norm = normalizeNick(name).toLowerCase();
+      const resolved = aliasMap.get(norm);
+      if (resolved) return resolved.toLowerCase();
+    }
+    return lower;
+  }
+
+  // Build lookup by match_id + resolved canonical
   const roleMap = new Map();
   for (const r of roles) {
-    const key = `${r.match_id}::${r.canonical.toLowerCase()}`;
+    const resolvedName = resolveRoleName(r.canonical);
+    const key = `${r.match_id}::${resolvedName}`;
     roleMap.set(key, r);
   }
 

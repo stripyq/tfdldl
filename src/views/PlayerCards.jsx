@@ -421,6 +421,7 @@ function PlayerCard({ name, playerRows, teamMatchRows, matchMap, onNavigateMatch
                   }}
                 >
                   {m.winPct.toFixed(0)}%
+                  {m.games < 3 && <span className="sample-warn" title="Small sample size">{'\u26A0'}</span>}
                 </td>
                 <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)' }}>
                   {m.avgDpm.toFixed(0)}

@@ -130,6 +130,15 @@ export default function App() {
           <span className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
             {data.matches.length} matches loaded
           </span>
+          {data.dataHash && (
+            <span
+              className="text-xs font-mono px-2 py-0.5 rounded"
+              style={{ backgroundColor: 'var(--color-bg)', color: 'var(--color-text-muted)' }}
+              title="Data version hash — identifies this specific dataset"
+            >
+              {data.dataHash}
+            </span>
+          )}
           <button
             onClick={handleReset}
             className="text-sm px-3 py-1 rounded cursor-pointer"

@@ -10,6 +10,7 @@ export default function DataHealth({ data }) {
     allMatches,
     // allPlayerRows available for future views
     unresolvedPlayers,
+    unresolvedNickCounts,
     unlinkedRoles,
     orphanedRoles,
     totalRoleEntries,
@@ -141,6 +142,22 @@ export default function DataHealth({ data }) {
           </p>
         )}
       </Section>
+
+      {/* Top Unregistered Nicknames */}
+      {unresolvedNickCounts && Object.keys(unresolvedNickCounts).length > 0 && (
+        <Section title="Top Unregistered Nicknames">
+          <p className="text-sm mb-2" style={{ color: 'var(--color-text-muted)' }}>
+            Most frequently appearing unresolved nicks — consider adding to player_registry.json.
+          </p>
+          <Table
+            rows={Object.entries(unresolvedNickCounts)
+              .sort((a, b) => b[1] - a[1])
+              .slice(0, 20)
+              .map(([nick, count]) => [nick, `${count} match${count !== 1 ? 'es' : ''}`])}
+            headers={['Nickname', 'Appearances']}
+          />
+        </Section>
+      )}
 
       {/* Unaffiliated Players */}
       <Section title="Unaffiliated Players (in registry but no team)">

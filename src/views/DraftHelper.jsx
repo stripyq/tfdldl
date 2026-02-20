@@ -298,6 +298,7 @@ export default function DraftHelper({ data }) {
                           }}
                         >
                           {r.h2hWinPct !== null ? `${r.h2hWinPct.toFixed(0)}%` : '—'}
+                          {r.h2hGames > 0 && r.h2hGames < 3 && <span className="sample-warn" title="Small sample size">{'\u26A0'}</span>}
                         </td>
                         <td
                           className="py-1.5 border-b"
