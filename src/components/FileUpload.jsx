@@ -53,12 +53,9 @@ export default function FileUpload({ onDataLoaded, isLoading }) {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-8">
-      <h1 className="text-3xl font-bold mb-2" style={{ color: 'var(--color-accent)' }}>
+      <h1 className="text-3xl font-bold mb-8" style={{ color: 'var(--color-accent)' }}>
         wB CTF Analytics
       </h1>
-      <p className="text-sm mb-8" style={{ color: 'var(--color-text-muted)' }}>
-        Upload your qllr match export to get started
-      </p>
 
       <div
         onDrop={onDrop}
@@ -96,10 +93,6 @@ export default function FileUpload({ onDataLoaded, isLoading }) {
         </p>
       )}
 
-      <p className="mt-8 text-xs max-w-md text-center" style={{ color: 'var(--color-text-muted)' }}>
-        Expects ctf_matches_full.json from qllr export. All processing happens
-        locally in your browser — no data is sent anywhere.
-      </p>
     </div>
   );
 }
