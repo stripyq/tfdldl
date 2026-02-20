@@ -1,0 +1,26 @@
+{
+  "focus_team": "wAnnaBees",
+  "scope_date": "2025-12-01",
+  "format_filter": "4v4",
+  "min_sample": { "map_strength": 3, "lineup": 3, "pair_synergy": 3 },
+  "teams_2026": {
+    "wAnnaBees": { "short": "wB", "color": "#FFD700" }
+  },
+  "maps": {
+    "japanesecastles": { "short": "Japan" },
+    "overkill": { "short": "Overkill" },
+    "courtyard": { "short": "Courtyard" },
+    "pillbox": { "short": "Pillbox" },
+    "warehouse": { "short": "Warehouse" },
+    "evolution": { "short": "Evo" },
+    "stronghold": { "short": "Stronghold" },
+    "tequilabar": { "short": "Tequila" },
+    "forgotten": { "short": "Forgotten" },
+    "troubled_waters": { "short": "TW" }
+  },
+  "role_normalize": {
+    "offs": "off",
+    "hm": "hmed",
+    "nmeRA": "eRA"
+  }
+}
