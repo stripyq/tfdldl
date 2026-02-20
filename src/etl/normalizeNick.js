@@ -2,8 +2,8 @@
  * Nick normalization — strips clan tags from in-game nicks before alias lookup.
  *
  * Uses clan_tag_patterns from team_config.json. Each pattern is a regex string.
- * Patterns starting with ^ strip a prefix. The pipe pattern \\| strips everything
- * up to and including the last pipe character.
+ * Patterns starting with ^ strip a prefix. The pipe pattern \\| just deletes the
+ * pipe character (e.g. ph0en|X → ph0enX).
  */
 
 /**
@@ -25,16 +25,9 @@ export function buildNickNormalizer(patterns) {
     for (const re of compiled) {
       const src = re.source;
 
-      // Pipe pattern: strip everything before and including the last |
-      if (src === '\\|') {
-        const pipeIdx = result.lastIndexOf('|');
-        if (pipeIdx !== -1) {
-          result = result.slice(pipeIdx + 1);
-        }
-        continue;
-      }
-
-      // Prefix pattern (^...): strip the matching prefix
+      // Apply the pattern — works for both prefix patterns and the pipe pattern.
+      // Prefix patterns (^CUBA etc.) strip the matched prefix.
+      // Pipe pattern (\\|) deletes the pipe character: ph0en|X → ph0enX.
       result = result.replace(re, '');
     }
 
