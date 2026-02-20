@@ -7,6 +7,7 @@ import Lineups from './views/Lineups.jsx';
 import PlayerCards from './views/PlayerCards.jsx';
 import MatchLog from './views/MatchLog.jsx';
 import DataHealth from './views/DataHealth.jsx';
+import DraftHelper from './views/DraftHelper.jsx';
 import { processData } from './etl/index.js';
 
 const VIEWS = [
@@ -15,6 +16,7 @@ const VIEWS = [
   { id: 'opponents', label: 'Opponents' },
   { id: 'lineups', label: 'Lineups' },
   { id: 'players', label: 'Player Cards' },
+  { id: 'draft', label: 'Draft Helper' },
   { id: 'matches', label: 'Match Log' },
   { id: 'health', label: 'Data Health' },
 ];
@@ -174,6 +176,7 @@ export default function App() {
           {activeView === 'opponents' && <OpponentMatrix data={data} onNavigateMatchLog={navigateToMatchLog} />}
           {activeView === 'lineups' && <Lineups data={data} onNavigateMatchLog={navigateToMatchLog} />}
           {activeView === 'players' && <PlayerCards data={data} onNavigateMatchLog={navigateToMatchLog} />}
+          {activeView === 'draft' && <DraftHelper data={data} />}
           {activeView === 'matches' && <MatchLog data={data} initialFilters={matchLogFilters} key={matchLogFilters?._ts || 'default'} />}
           {activeView === 'health' && <DataHealth data={data} />}
         </main>
