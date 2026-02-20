@@ -5,6 +5,7 @@ import MapStrength from './views/MapStrength.jsx';
 import OpponentMatrix from './views/OpponentMatrix.jsx';
 import Lineups from './views/Lineups.jsx';
 import PlayerCards from './views/PlayerCards.jsx';
+import MatchLog from './views/MatchLog.jsx';
 import DataHealth from './views/DataHealth.jsx';
 import { processData } from './etl/index.js';
 
@@ -14,6 +15,7 @@ const VIEWS = [
   { id: 'opponents', label: 'Opponents' },
   { id: 'lineups', label: 'Lineups' },
   { id: 'players', label: 'Player Cards' },
+  { id: 'matches', label: 'Match Log' },
   { id: 'health', label: 'Data Health' },
 ];
 
@@ -166,6 +168,7 @@ export default function App() {
           {activeView === 'opponents' && <OpponentMatrix data={data} />}
           {activeView === 'lineups' && <Lineups data={data} />}
           {activeView === 'players' && <PlayerCards data={data} />}
+          {activeView === 'matches' && <MatchLog data={data} />}
           {activeView === 'health' && <DataHealth data={data} />}
         </main>
       </div>
