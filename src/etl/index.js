@@ -21,8 +21,8 @@ import { parseRoles, mergeRoles } from './parseRoles.js';
  * @returns {Object} Processed data containing all computed datasets
  */
 export function processData(rawJson, playerRegistry, teamConfig, manualRoles) {
-  // Step 1: Parse raw matches into normalized structures
-  const { matches, playerRows, unresolvedPlayers } = parseMatches(rawJson, playerRegistry);
+  // Step 1: Parse raw matches into normalized structures (needs teamConfig for clan_tag_patterns)
+  const { matches, playerRows, unresolvedPlayers } = parseMatches(rawJson, playerRegistry, teamConfig);
 
   // Step 2: Resolve team membership per player per era
   resolveTeams(playerRows, matches, playerRegistry, teamConfig);

@@ -2,6 +2,8 @@
  * Step 1: Parse raw match JSON into normalized matches[] and playerRows[].
  */
 
+import { buildNickNormalizer } from './normalizeNick.js';
+
 /**
  * Parse "MM:SS" duration string to seconds.
  */
@@ -39,7 +41,6 @@ function parseAccuracy(acc) {
  */
 function toLocal(utcStr) {
   if (!utcStr) return { datetime_local: null, date_local: null };
-  // Parse the UTC string
   const cleaned = utcStr.replace(' UTC', '');
   const date = new Date(cleaned + 'Z');
   if (isNaN(date.getTime())) return { datetime_local: null, date_local: null };
@@ -62,19 +63,32 @@ function toLocal(utcStr) {
 
 /**
  * Build alias lookup map from player registry.
- * Returns { lowercaseAlias -> registryEntry }
+ * Keys are casefolded AND normalized (clan-tag-stripped) forms of aliases and canonical names.
+ * Returns Map<string, registryEntry>
  */
-function buildAliasMap(registry) {
+function buildAliasMap(registry, normalizeNick) {
   const map = new Map();
   for (const entry of registry) {
-    // Index by canonical name
-    map.set(entry.canonical.toLowerCase(), entry);
-    // Index by each alias
+    const canonical = entry.canonical;
+
+    // Index by casefolded canonical name (raw and normalized)
+    map.set(canonical.toLowerCase(), entry);
+    const normalizedCanonical = normalizeNick(canonical).toLowerCase();
+    if (normalizedCanonical && !map.has(normalizedCanonical)) {
+      map.set(normalizedCanonical, entry);
+    }
+
+    // Index by each alias (raw casefolded and normalized casefolded)
     if (entry.aliases) {
       for (const alias of entry.aliases) {
         map.set(alias.toLowerCase(), entry);
+        const normalizedAlias = normalizeNick(alias).toLowerCase();
+        if (normalizedAlias && !map.has(normalizedAlias)) {
+          map.set(normalizedAlias, entry);
+        }
       }
     }
+
     // Index by steam_id
     if (entry.steam_id) {
       map.set(String(entry.steam_id), entry);
@@ -85,18 +99,27 @@ function buildAliasMap(registry) {
 
 /**
  * Resolve a player nick to canonical name and steam_id using the registry.
+ * Resolution order: normalize nick → casefold → look up in alias map.
  * Returns { canonical, steam_id, resolved }
  */
-function resolvePlayer(nick, aliasMap) {
-  const key = nick.toLowerCase();
-
-  // 1. Look up by alias
-  let entry = aliasMap.get(key);
+function resolvePlayer(nick, aliasMap, normalizeNick) {
+  // 1. Try raw nick (casefolded) first — handles exact matches
+  const rawKey = nick.toLowerCase();
+  let entry = aliasMap.get(rawKey);
   if (entry) {
     return { canonical: entry.canonical, steam_id: String(entry.steam_id), resolved: true };
   }
 
-  // 2. Not found — mark unresolved
+  // 2. Normalize nick (strip clan tags) then casefold
+  const normalized = normalizeNick(nick).toLowerCase();
+  if (normalized && normalized !== rawKey) {
+    entry = aliasMap.get(normalized);
+    if (entry) {
+      return { canonical: entry.canonical, steam_id: String(entry.steam_id), resolved: true };
+    }
+  }
+
+  // 3. Not found — mark unresolved
   return { canonical: nick, steam_id: null, resolved: false };
 }
 
@@ -104,10 +127,12 @@ function resolvePlayer(nick, aliasMap) {
  * Main parse function.
  * @param {Array} rawMatches - raw JSON array from qllr export
  * @param {Array} playerRegistry - player_registry.json contents
+ * @param {Object} teamConfig - team_config.json (needs clan_tag_patterns)
  * @returns {{ matches: Array, playerRows: Array, unresolvedPlayers: Set }}
  */
-export function parseMatches(rawMatches, playerRegistry) {
-  const aliasMap = buildAliasMap(playerRegistry);
+export function parseMatches(rawMatches, playerRegistry, teamConfig) {
+  const normalizeNick = buildNickNormalizer(teamConfig.clan_tag_patterns);
+  const aliasMap = buildAliasMap(playerRegistry, normalizeNick);
   const matches = [];
   const playerRows = [];
   const unresolvedPlayers = new Set();
@@ -158,7 +183,7 @@ export function parseMatches(rawMatches, playerRegistry) {
 
     // Process each player in the match
     for (const p of playersArr) {
-      const { canonical, steam_id, resolved } = resolvePlayer(p.Nick, aliasMap);
+      const { canonical, steam_id, resolved } = resolvePlayer(p.Nick, aliasMap, normalizeNick);
       if (!resolved) {
         unresolvedPlayers.add(p.Nick);
       }

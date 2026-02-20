@@ -31,6 +31,7 @@ npm run lint     # ESLint
 ├── src/
 │   ├── etl/                      # ETL pipeline (pure JS, no React)
 │   │   ├── index.js              # Orchestrator: processData() runs full pipeline
+│   │   ├── normalizeNick.js       # Clan-tag stripping (used by parseMatches before alias lookup)
 │   │   ├── parseMatches.js       # Step 1: Raw JSON → normalized matches[] + playerRows[]
 │   │   ├── resolveTeams.js       # Step 2: Player → team assignment per era
 │   │   ├── classifySides.js      # Step 3: FULL_TEAM / STACK_3PLUS / MIX classification
@@ -77,7 +78,8 @@ processData(rawJson, playerRegistry, teamConfig, manualRoles)
 ### Important Conventions
 
 - **steam_id is always a string** — never parse as number (too large for JS number)
-- **Nick → canonical resolution**: alias lookup → canonical match → fallback to raw nick (flagged UNRESOLVED)
+- **Nick → canonical resolution**: strip clan tags (normalizeNick) → casefold → alias lookup → canonical match → fallback to raw nick (flagged UNRESOLVED)
+- **Clan tag stripping**: `clan_tag_patterns` in team_config.json define regex patterns (e.g. `^CUBA`, `^wB[_ ]?`, `\\|`) applied before alias lookup
 - **Era-based team assignment**: uses `scope_date` from team_config.json to decide team_2024 vs team_2026
 - **Side classification hierarchy**: FULL_TEAM (all same team) > STACK_3PLUS (≥3) > MIX
 - **Dataset flags**: loose/strict/h2h/standings — used by views to filter meaningful matches
@@ -96,6 +98,7 @@ Array of player entries. Fields: `canonical`, `steam_id` (string!), `aliases` (a
 - `min_sample`: minimum game thresholds for maps, lineups, pairs
 - `teams_2026`: team metadata (short name, color)
 - `maps`: map name → short display name
+- `clan_tag_patterns`: array of regex strings for stripping clan tags from nicks (e.g. `^CUBA`, `^wB[_ ]?`, `\\|`)
 - `role_normalize`: shorthand role tokens → normalized form
 
 ### manual_roles.json

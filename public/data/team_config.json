@@ -1,5 +1,6 @@
 {
   "focus_team": "wAnnaBees",
+  "clan_tag_patterns": ["^CUBA", "^FF\\^", "^wB[_ ]?", "^AB[_ ]?", "^SHRK", "\\|"],
   "scope_date": "2025-12-01",
   "format_filter": "4v4",
   "min_sample": { "map_strength": 3, "lineup": 3, "pair_synergy": 3 },
