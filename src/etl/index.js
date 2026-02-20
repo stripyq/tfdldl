@@ -41,16 +41,22 @@ export function processData(rawJson, playerRegistry, teamConfig, manualRoles) {
   );
 
   // Step 6a: Link unlinked manual role entries by (date, map, score) fallback
-  const { linkedCount: rolesLinkedByFallback, stillUnlinked: rolesStillUnlinked } =
-    linkUnlinkedRoles(manualRoles, matches);
+  const {
+    linkedCount: rolesLinkedByFallback,
+    orphanedRoles,
+    stillUnlinked: rolesStillUnlinked,
+  } = linkUnlinkedRoles(manualRoles, matches);
 
-  // Step 6b: Parse and merge role annotations (now includes newly linked entries)
+  // Step 6b: Parse and merge role annotations (includes newly linked + orphaned)
+  // Parse ALL manual roles (linked, orphaned, and still-unlinked) so role data is available
   const roles = parseRoles(manualRoles, teamConfig);
   mergeRoles(playerRows, roles);
 
-  // Count entries still unlinked after fallback
+  // Count entries still unlinked (no match_id) after fallback — excludes orphaned
   const matchIdSet = new Set(matches.map((m) => m.match_id));
-  const unlinkedRoles = manualRoles.filter((r) => !matchIdSet.has(r.match_id));
+  const unlinkedRoles = manualRoles.filter(
+    (r) => !matchIdSet.has(r.match_id) && !orphanedRoles.includes(r)
+  );
 
   // Scope filter: only matches after scope_date
   const scopedMatches = matches.filter((m) => m.date_local >= teamConfig.scope_date);
@@ -70,6 +76,7 @@ export function processData(rawJson, playerRegistry, teamConfig, manualRoles) {
     // Diagnostics
     unresolvedPlayers: [...unresolvedPlayers],
     unlinkedRoles,
+    orphanedRoles,
     totalRoleEntries: roles.length,
     rolesMerged: playerRows.filter((p) => p.role_parsed !== null).length,
     rolesLinkedByFallback,

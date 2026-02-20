@@ -103,31 +103,57 @@ function parseRolesRaw(rolesRaw, roleNormalize) {
 }
 
 /**
+ * Normalize map name for fuzzy matching: lowercase, strip underscores/spaces.
+ * e.g. "troubled_waters" → "troubledwaters", "Troubled Waters" → "troubledwaters"
+ */
+function normalizeMapName(name) {
+  return (name || '').toLowerCase().replace(/[_\s]/g, '');
+}
+
+/**
  * Link unlinked manual role entries (no match_id) to processed matches
- * using a composite key: (date_local, map, score).
+ * using a composite key: (date_local, normalized_map, score).
  *
  * Mutates manualRoles entries in place (sets match_id when exactly 1 match found).
  *
  * @param {Array} manualRoles - manual_roles.json contents
  * @param {Array} matches - processed matches from parseMatches
- * @returns {{ linkedCount: number, stillUnlinked: Array<{ entry: Object, reason: string }> }}
+ * @returns {{ linkedCount: number, orphanedRoles: Array, stillUnlinked: Array<{ entry: Object, reason: string }> }}
  */
 export function linkUnlinkedRoles(manualRoles, matches) {
-  // Build index: "date_local::map" → [match, ...]
+  // --- Diagnostic: match date range ---
+  const allDates = matches.map((m) => m.date_local).filter(Boolean).sort();
+  if (allDates.length > 0) {
+    console.log(
+      `[linkUnlinkedRoles] Match data range: ${allDates[0]} to ${allDates[allDates.length - 1]} (${matches.length} matches)`
+    );
+  } else {
+    console.warn('[linkUnlinkedRoles] No matches with date_local found');
+  }
+
+  // Build indexes:
+  //   dateIndex: date_local → [match, ...] (to detect orphans)
+  //   dateMapIndex: "date_local::normalizedMap" → [match, ...]
+  const dateIndex = new Map();
   const dateMapIndex = new Map();
   for (const m of matches) {
-    const key = `${m.date_local}::${m.map}`;
+    if (!m.date_local) continue;
+    if (!dateIndex.has(m.date_local)) dateIndex.set(m.date_local, []);
+    dateIndex.get(m.date_local).push(m);
+
+    const key = `${m.date_local}::${normalizeMapName(m.map)}`;
     if (!dateMapIndex.has(key)) dateMapIndex.set(key, []);
     dateMapIndex.get(key).push(m);
   }
 
   let linkedCount = 0;
+  const orphanedRoles = [];
   const stillUnlinked = [];
 
-  for (const entry of manualRoles) {
-    // Only process entries with no match_id
-    if (entry.match_id) continue;
+  const unlinkedEntries = manualRoles.filter((e) => !e.match_id);
+  console.log(`[linkUnlinkedRoles] ${unlinkedEntries.length} entries to link`);
 
+  for (const entry of unlinkedEntries) {
     const scoreWb = parseInt(entry.score_wb, 10);
     const scoreOpp = parseInt(entry.score_opp, 10);
 
@@ -136,8 +162,32 @@ export function linkUnlinkedRoles(manualRoles, matches) {
       continue;
     }
 
-    const key = `${entry.date_local}::${entry.map}`;
+    // Check if ANY matches exist on this date
+    const matchesOnDate = dateIndex.get(entry.date_local);
+    if (!matchesOnDate) {
+      // Date not in match data at all → orphaned (external server / not in qllr)
+      orphanedRoles.push(entry);
+      console.log(
+        `[linkUnlinkedRoles] ORPHAN: ${entry.date_local} ${entry.map} ${entry.score_wb}-${entry.score_opp} — date not in match data`
+      );
+      continue;
+    }
+
+    // Look up by normalized map name
+    const normMap = normalizeMapName(entry.map);
+    const key = `${entry.date_local}::${normMap}`;
     const candidates = dateMapIndex.get(key) || [];
+
+    if (candidates.length === 0) {
+      // Date exists but map doesn't match anything
+      const mapsOnDate = [...new Set(matchesOnDate.map((m) => m.map))];
+      console.log(
+        `[linkUnlinkedRoles] NO MAP MATCH: ${entry.date_local} "${entry.map}" (norm: "${normMap}") — ` +
+        `matches on date have maps: [${mapsOnDate.join(', ')}] (norm: [${mapsOnDate.map(normalizeMapName).join(', ')}])`
+      );
+      stillUnlinked.push({ entry, reason: 'no_match' });
+      continue;
+    }
 
     // Filter by score match (wB could be on either side)
     const scoreMatches = candidates.filter(
@@ -148,22 +198,32 @@ export function linkUnlinkedRoles(manualRoles, matches) {
 
     if (scoreMatches.length === 1) {
       entry.match_id = scoreMatches[0].match_id;
-      // Infer wb_side if not already set
       if (!entry.wb_side) {
         const m = scoreMatches[0];
         entry.wb_side =
           m.score_red === scoreWb && m.score_blue === scoreOpp ? 'red' : 'blue';
       }
       linkedCount++;
+    } else if (scoreMatches.length === 0) {
+      const candScores = candidates.map((m) => `${m.score_red}-${m.score_blue}`);
+      console.log(
+        `[linkUnlinkedRoles] SCORE MISMATCH: ${entry.date_local} ${entry.map} want ${scoreWb}-${scoreOpp} — ` +
+        `candidates have scores: [${candScores.join(', ')}]`
+      );
+      stillUnlinked.push({ entry, reason: 'no_match' });
     } else {
-      stillUnlinked.push({
-        entry,
-        reason: scoreMatches.length === 0 ? 'no_match' : 'ambiguous',
-      });
+      console.log(
+        `[linkUnlinkedRoles] AMBIGUOUS: ${entry.date_local} ${entry.map} ${scoreWb}-${scoreOpp} — ${scoreMatches.length} matches`
+      );
+      stillUnlinked.push({ entry, reason: 'ambiguous' });
     }
   }
 
-  return { linkedCount, stillUnlinked };
+  console.log(
+    `[linkUnlinkedRoles] Result: ${linkedCount} linked, ${orphanedRoles.length} orphaned, ${stillUnlinked.length} unlinked`
+  );
+
+  return { linkedCount, orphanedRoles, stillUnlinked };
 }
 
 /**

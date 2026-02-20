@@ -11,6 +11,7 @@ export default function DataHealth({ data }) {
     allPlayerRows,
     unresolvedPlayers,
     unlinkedRoles,
+    orphanedRoles,
     totalRoleEntries,
     rolesMerged,
     rolesLinkedByFallback,
@@ -171,14 +172,15 @@ export default function DataHealth({ data }) {
             ['Parsed role assignments', totalRoleEntries],
             ['Merged into player rows', rolesMerged],
             ['Linked by fallback (date/map/score)', rolesLinkedByFallback ?? 0],
-            ['Still unlinked', unlinkedRoles.length],
+            ['Orphaned (no match data)', orphanedRoles ? orphanedRoles.length : 0],
+            ['Still unlinked (date exists, match failed)', unlinkedRoles.length],
           ]}
           headers={['Metric', 'Count']}
         />
         {rolesStillUnlinked && rolesStillUnlinked.length > 0 && (
           <div className="mt-3">
             <p className="text-sm font-medium mb-1" style={{ color: 'var(--color-draw)' }}>
-              Unlinked role entries:
+              Unlinked role entries (check console for details):
             </p>
             <List
               items={rolesStillUnlinked.map((u) => {
@@ -193,6 +195,23 @@ export default function DataHealth({ data }) {
           </div>
         )}
       </Section>
+
+      {/* Orphaned Role Entries */}
+      {orphanedRoles && orphanedRoles.length > 0 && (
+        <Section title="Role entries without match data (external server)">
+          <p className="text-sm mb-2" style={{ color: 'var(--color-text-muted)' }}>
+            These role annotations reference dates not present in the uploaded qllr data.
+            They may be from external servers or matches not tracked by qllr.
+            Role assignments are preserved for analysis.
+          </p>
+          <List
+            items={orphanedRoles.map(
+              (e) => `${e.date_local} ${e.map} (${e.score_wb}-${e.score_opp} vs ${e.opponent}) [${e.session || ''}]`
+            )}
+            color="var(--color-text-muted)"
+          />
+        </Section>
+      )}
 
       {/* Computed Data Summary */}
       <Section title="Computed Data Summary">
