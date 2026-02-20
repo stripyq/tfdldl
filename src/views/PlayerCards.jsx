@@ -17,7 +17,7 @@ const WEAPON_COLORS = {
   Other: '#888888',
 };
 
-export default function PlayerCards({ data }) {
+export default function PlayerCards({ data, onNavigateMatchLog }) {
   const { playerRows, teamMatchRows, matches } = data;
 
   // Build match lookup
@@ -99,6 +99,7 @@ export default function PlayerCards({ data }) {
           playerRows={playerRows}
           teamMatchRows={teamMatchRows}
           matchMap={matchMap}
+          onNavigateMatchLog={onNavigateMatchLog}
         />
         {compareMode && (
           <PlayerCard
@@ -106,6 +107,7 @@ export default function PlayerCards({ data }) {
             playerRows={playerRows}
             teamMatchRows={teamMatchRows}
             matchMap={matchMap}
+            onNavigateMatchLog={onNavigateMatchLog}
           />
         )}
       </div>
@@ -137,7 +139,7 @@ function PlayerSelect({ label, players, value, onChange }) {
   );
 }
 
-function PlayerCard({ name, playerRows, teamMatchRows, matchMap }) {
+function PlayerCard({ name, playerRows, teamMatchRows, matchMap, onNavigateMatchLog }) {
   const stats = useMemo(() => {
     if (!name) return null;
 
@@ -387,10 +389,29 @@ function PlayerCard({ name, playerRows, teamMatchRows, matchMap }) {
                   {m.map}
                 </td>
                 <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)' }}>
-                  {m.games}
+                  <span
+                    className="stat-link"
+                    onClick={() => onNavigateMatchLog?.({ map: m.map, player: name })}
+                  >
+                    {m.games}
+                  </span>
                 </td>
                 <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)' }}>
-                  {m.wins}-{m.losses}
+                  <span
+                    className="stat-link"
+                    style={{ color: 'var(--color-win)' }}
+                    onClick={() => onNavigateMatchLog?.({ map: m.map, player: name, result: 'W' })}
+                  >
+                    {m.wins}
+                  </span>
+                  -
+                  <span
+                    className="stat-link"
+                    style={{ color: 'var(--color-loss)' }}
+                    onClick={() => onNavigateMatchLog?.({ map: m.map, player: name, result: 'L' })}
+                  >
+                    {m.losses}
+                  </span>
                 </td>
                 <td
                   className="py-1.5 border-b font-medium"

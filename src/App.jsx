@@ -25,6 +25,12 @@ export default function App() {
   const [error, setError] = useState(null);
   const [configs, setConfigs] = useState(null);
   const [activeView, setActiveView] = useState('overview');
+  const [matchLogFilters, setMatchLogFilters] = useState(null);
+
+  function navigateToMatchLog(filters) {
+    setMatchLogFilters({ ...filters, _ts: Date.now() });
+    setActiveView('matches');
+  }
 
   // Load config files on mount
   useEffect(() => {
@@ -163,12 +169,12 @@ export default function App() {
 
         {/* Main content */}
         <main className="flex-1 overflow-y-auto">
-          {activeView === 'overview' && <Overview data={data} />}
-          {activeView === 'maps' && <MapStrength data={data} />}
-          {activeView === 'opponents' && <OpponentMatrix data={data} />}
-          {activeView === 'lineups' && <Lineups data={data} />}
-          {activeView === 'players' && <PlayerCards data={data} />}
-          {activeView === 'matches' && <MatchLog data={data} />}
+          {activeView === 'overview' && <Overview data={data} onNavigateMatchLog={navigateToMatchLog} />}
+          {activeView === 'maps' && <MapStrength data={data} onNavigateMatchLog={navigateToMatchLog} />}
+          {activeView === 'opponents' && <OpponentMatrix data={data} onNavigateMatchLog={navigateToMatchLog} />}
+          {activeView === 'lineups' && <Lineups data={data} onNavigateMatchLog={navigateToMatchLog} />}
+          {activeView === 'players' && <PlayerCards data={data} onNavigateMatchLog={navigateToMatchLog} />}
+          {activeView === 'matches' && <MatchLog data={data} initialFilters={matchLogFilters} key={matchLogFilters?._ts || 'default'} />}
           {activeView === 'health' && <DataHealth data={data} />}
         </main>
       </div>

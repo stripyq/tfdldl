@@ -1,5 +1,6 @@
 /**
  * MatchLog view — filterable, sortable match table with expandable per-player detail.
+ * Supports external filter presets via initialFilters prop (for cross-view navigation).
  */
 
 import { useState, useMemo } from 'react';
@@ -7,7 +8,7 @@ import ExportButton from '../components/ExportButton.jsx';
 
 const FOCUS = 'wAnnaBees';
 
-export default function MatchLog({ data }) {
+export default function MatchLog({ data, initialFilters }) {
   const { matches, teamMatchRows, playerRows } = data;
 
   // Build lookup maps
@@ -54,11 +55,13 @@ export default function MatchLog({ data }) {
     [allRows]
   );
 
-  // Filter state
-  const [filterMap, setFilterMap] = useState('all');
-  const [filterOpp, setFilterOpp] = useState('all');
-  const [filterResult, setFilterResult] = useState('all');
-  const [filterDataset, setFilterDataset] = useState('loose');
+  // Filter state — initialized from external filter presets (component is re-keyed on change)
+  const [filterMap, setFilterMap] = useState(initialFilters?.map || 'all');
+  const [filterOpp, setFilterOpp] = useState(initialFilters?.opponent || 'all');
+  const [filterResult, setFilterResult] = useState(initialFilters?.result || 'all');
+  const [filterDataset, setFilterDataset] = useState(initialFilters?.dataset || (initialFilters ? 'all' : 'loose'));
+  const [filterLineup, setFilterLineup] = useState(initialFilters?.lineup || null);
+  const [filterPlayer, setFilterPlayer] = useState(initialFilters?.player || null);
   const [sortCol, setSortCol] = useState('date');
   const [sortAsc, setSortAsc] = useState(false);
   const [expandedId, setExpandedId] = useState(null);
@@ -72,9 +75,11 @@ export default function MatchLog({ data }) {
       if (filterDataset === 'loose' && !r.qualifies_loose) return false;
       if (filterDataset === 'strict' && !r.qualifies_strict) return false;
       if (filterDataset === 'h2h' && !r.qualifies_h2h) return false;
+      if (filterLineup && r.lineup_key !== filterLineup) return false;
+      if (filterPlayer && !r.player_names.includes(filterPlayer)) return false;
       return true;
     });
-  }, [allRows, filterMap, filterOpp, filterResult, filterDataset]);
+  }, [allRows, filterMap, filterOpp, filterResult, filterDataset, filterLineup, filterPlayer]);
 
   // Apply sorting
   const sorted = useMemo(() => {
@@ -105,6 +110,11 @@ export default function MatchLog({ data }) {
   function handleSort(col) {
     if (sortCol === col) setSortAsc(!sortAsc);
     else { setSortCol(col); setSortAsc(false); }
+  }
+
+  function clearSpecialFilters() {
+    setFilterLineup(null);
+    setFilterPlayer(null);
   }
 
   // Export data
@@ -175,6 +185,31 @@ export default function MatchLog({ data }) {
         />
       </div>
 
+      {/* Active special filter badges */}
+      {(filterLineup || filterPlayer) && (
+        <div className="flex flex-wrap gap-2 mb-3">
+          {filterPlayer && (
+            <FilterBadge
+              label={`Player: ${filterPlayer}`}
+              onClear={() => setFilterPlayer(null)}
+            />
+          )}
+          {filterLineup && (
+            <FilterBadge
+              label={`Lineup: ${filterLineup.split('+').join(' \u00B7 ')}`}
+              onClear={() => setFilterLineup(null)}
+            />
+          )}
+          <button
+            onClick={clearSpecialFilters}
+            className="text-xs px-2 py-1 rounded cursor-pointer"
+            style={{ color: 'var(--color-text-muted)' }}
+          >
+            Clear all
+          </button>
+        </div>
+      )}
+
       <p className="text-sm mb-4" style={{ color: 'var(--color-text-muted)' }}>
         {filtered.length} matches &middot; {wins}W&ndash;{losses}L
         {filtered.length > 0 && ` \u00B7 ${((wins / filtered.length) * 100).toFixed(0)}%`}
@@ -226,6 +261,7 @@ export default function MatchLog({ data }) {
                     isExpanded={isExpanded}
                     onToggle={() => setExpandedId(isExpanded ? null : r.match_id)}
                     playersByMatch={playersByMatch}
+                    matchMap={matchMap}
                     colCount={columns.length + 2}
                   />
                 );
@@ -238,7 +274,7 @@ export default function MatchLog({ data }) {
   );
 }
 
-function MatchRow({ row, isExpanded, onToggle, playersByMatch, colCount }) {
+function MatchRow({ row, isExpanded, onToggle, playersByMatch, matchMap, colCount }) {
   const r = row;
   const resultColor = r.result === 'W' ? 'var(--color-win)' : r.result === 'L' ? 'var(--color-loss)' : 'var(--color-draw)';
 
@@ -292,7 +328,12 @@ function MatchRow({ row, isExpanded, onToggle, playersByMatch, colCount }) {
       {isExpanded && (
         <tr>
           <td colSpan={colCount} style={{ backgroundColor: 'var(--color-bg)' }}>
-            <ExpandedDetail matchId={r.match_id} side={r.side} playersByMatch={playersByMatch} />
+            <ExpandedDetail
+              matchId={r.match_id}
+              side={r.side}
+              playersByMatch={playersByMatch}
+              match={matchMap.get(r.match_id)}
+            />
           </td>
         </tr>
       )}
@@ -300,14 +341,22 @@ function MatchRow({ row, isExpanded, onToggle, playersByMatch, colCount }) {
   );
 }
 
-function ExpandedDetail({ matchId, side, playersByMatch }) {
+function ExpandedDetail({ matchId, side, playersByMatch, match }) {
   const allPlayers = playersByMatch.get(matchId) || [];
   const wbPlayers = allPlayers.filter((p) => p.side === side);
   const oppPlayers = allPlayers.filter((p) => p.side !== side);
 
+  // Determine the expected team for each side
+  const wbTeam = match
+    ? (side === 'red' ? match.team_red : match.team_blue)
+    : null;
+  const oppTeam = match
+    ? (side === 'red' ? match.team_blue : match.team_red)
+    : null;
+
   const headers = ['Player', 'Frags', 'Deaths', 'K/D', 'Caps', 'Def', 'DPM', 'Net Dmg'];
 
-  function renderTable(players, label) {
+  function renderTable(players, label, expectedTeam) {
     if (players.length === 0) return null;
     const sorted = [...players].sort((a, b) => b.dmg_dealt - a.dmg_dealt);
     return (
@@ -330,25 +379,42 @@ function ExpandedDetail({ matchId, side, playersByMatch }) {
             </tr>
           </thead>
           <tbody>
-            {sorted.map((p) => (
-              <tr key={p.canonical + p.side}>
-                <td className="px-4 py-0.5 font-medium">{p.canonical}</td>
-                <td className="px-4 py-0.5">{p.frags}</td>
-                <td className="px-4 py-0.5">{p.deaths}</td>
-                <td className="px-4 py-0.5">{p.kd_ratio.toFixed(2)}</td>
-                <td className="px-4 py-0.5">{p.caps}</td>
-                <td className="px-4 py-0.5">{p.defends}</td>
-                <td className="px-4 py-0.5">{p.dpm.toFixed(0)}</td>
-                <td
-                  className="px-4 py-0.5"
-                  style={{
-                    color: p.net_damage > 0 ? 'var(--color-win)' : p.net_damage < 0 ? 'var(--color-loss)' : undefined,
-                  }}
-                >
-                  {p.net_damage >= 0 ? '+' : ''}{p.net_damage.toFixed(0)}
-                </td>
-              </tr>
-            ))}
+            {sorted.map((p) => {
+              const isSub = expectedTeam && expectedTeam !== 'MIX' &&
+                p.team_membership !== expectedTeam;
+              return (
+                <tr key={p.canonical + p.side} className={isSub ? 'player-sub' : ''}>
+                  <td className="px-4 py-0.5 font-medium">
+                    {p.canonical}
+                    {isSub && (
+                      <span
+                        className="ml-1.5 text-[10px] font-normal px-1 py-px rounded"
+                        style={{
+                          backgroundColor: 'var(--color-surface-hover)',
+                          color: 'var(--color-text-muted)',
+                        }}
+                      >
+                        sub
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-4 py-0.5">{p.frags}</td>
+                  <td className="px-4 py-0.5">{p.deaths}</td>
+                  <td className="px-4 py-0.5">{p.kd_ratio.toFixed(2)}</td>
+                  <td className="px-4 py-0.5">{p.caps}</td>
+                  <td className="px-4 py-0.5">{p.defends}</td>
+                  <td className="px-4 py-0.5">{p.dpm.toFixed(0)}</td>
+                  <td
+                    className="px-4 py-0.5"
+                    style={{
+                      color: p.net_damage > 0 ? 'var(--color-win)' : p.net_damage < 0 ? 'var(--color-loss)' : undefined,
+                    }}
+                  >
+                    {p.net_damage >= 0 ? '+' : ''}{p.net_damage.toFixed(0)}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -357,9 +423,31 @@ function ExpandedDetail({ matchId, side, playersByMatch }) {
 
   return (
     <div className="py-2">
-      {renderTable(wbPlayers, 'wAnnaBees')}
-      {renderTable(oppPlayers, 'Opponent')}
+      {renderTable(wbPlayers, 'wAnnaBees', wbTeam)}
+      {renderTable(oppPlayers, 'Opponent', oppTeam)}
     </div>
+  );
+}
+
+function FilterBadge({ label, onClear }) {
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full"
+      style={{
+        backgroundColor: 'var(--color-surface-hover)',
+        color: 'var(--color-accent)',
+        border: '1px solid var(--color-border)',
+      }}
+    >
+      {label}
+      <button
+        onClick={onClear}
+        className="cursor-pointer hover:opacity-70"
+        style={{ color: 'var(--color-text-muted)' }}
+      >
+        &times;
+      </button>
+    </span>
   );
 }
 

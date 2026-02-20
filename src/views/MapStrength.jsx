@@ -9,7 +9,7 @@ import ExportButton from '../components/ExportButton.jsx';
 
 const MIN_GAMES = 3;
 
-export default function MapStrength({ data }) {
+export default function MapStrength({ data, onNavigateMatchLog }) {
   const { teamMatchRows } = data;
   const [mode, setMode] = useState('loose'); // 'loose' | 'strict'
   const [sortCol, setSortCol] = useState('games');
@@ -212,7 +212,32 @@ export default function MapStrength({ data }) {
                           fontWeight: c.key === 'winPct' ? 600 : undefined,
                         }}
                       >
-                        {fmtCell(c.key, row)}
+                        {c.key === 'games' ? (
+                          <span
+                            className="stat-link"
+                            onClick={() => onNavigateMatchLog?.({ map: row.map, dataset: mode })}
+                          >
+                            {row.games}
+                          </span>
+                        ) : c.key === 'wins' ? (
+                          <span
+                            className="stat-link"
+                            style={{ color: 'var(--color-win)' }}
+                            onClick={() => onNavigateMatchLog?.({ map: row.map, result: 'W', dataset: mode })}
+                          >
+                            {row.wins}
+                          </span>
+                        ) : c.key === 'losses' ? (
+                          <span
+                            className="stat-link"
+                            style={{ color: 'var(--color-loss)' }}
+                            onClick={() => onNavigateMatchLog?.({ map: row.map, result: 'L', dataset: mode })}
+                          >
+                            {row.losses}
+                          </span>
+                        ) : (
+                          fmtCell(c.key, row)
+                        )}
                       </td>
                     ))}
                   </tr>

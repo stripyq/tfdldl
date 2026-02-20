@@ -10,7 +10,7 @@ import ExportButton from '../components/ExportButton.jsx';
 const FOCUS = 'wAnnaBees';
 const MIN_GAMES = 3;
 
-export default function Lineups({ data }) {
+export default function Lineups({ data, onNavigateMatchLog }) {
   const { lineupStats, pairStats, teamMatchRows } = data;
 
   // --- Lineup table ---
@@ -163,7 +163,12 @@ export default function Lineups({ data }) {
                     {l.player_names.join(' \u00B7 ')}
                   </td>
                   <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)' }}>
-                    {l.games}
+                    <span
+                      className="stat-link"
+                      onClick={() => onNavigateMatchLog?.({ lineup: l.lineup_key })}
+                    >
+                      {l.games}
+                    </span>
                   </td>
                   <td
                     className="py-1.5 border-b font-semibold"
