@@ -10,6 +10,7 @@ import { classifySides } from './classifySides.js';
 import { datasetFlags } from './datasetFlags.js';
 import { computeStats } from './computeStats.js';
 import { linkUnlinkedRoles, parseRoles, mergeRoles } from './parseRoles.js';
+import { buildNickNormalizer } from './normalizeNick.js';
 
 /**
  * Process raw match data through the full ETL pipeline.
@@ -50,7 +51,8 @@ export function processData(rawJson, playerRegistry, teamConfig, manualRoles) {
   // Step 6b: Parse and merge role annotations (includes newly linked + orphaned)
   // Parse ALL manual roles (linked, orphaned, and still-unlinked) so role data is available
   const roles = parseRoles(manualRoles, teamConfig);
-  mergeRoles(playerRows, roles);
+  const normalizeNick = buildNickNormalizer(teamConfig.clan_tag_patterns);
+  mergeRoles(playerRows, roles, normalizeNick, playerRegistry);
 
   // Count entries still unlinked (no match_id) after fallback — excludes orphaned
   const matchIdSet = new Set(matches.map((m) => m.match_id));
@@ -64,6 +66,22 @@ export function processData(rawJson, playerRegistry, teamConfig, manualRoles) {
   const scopedPlayerRows = playerRows.filter((p) => scopedMatchIds.has(p.match_id));
   const scopedTeamMatchRows = teamMatchRows.filter((r) => scopedMatchIds.has(r.match_id));
 
+  // Top unresolved nick counts (scoped)
+  const unresolvedNickCounts = {};
+  for (const p of scopedPlayerRows) {
+    if (!p.resolved) {
+      unresolvedNickCounts[p.raw_nick] = (unresolvedNickCounts[p.raw_nick] || 0) + 1;
+    }
+  }
+
+  // Data version hash — short fingerprint from match IDs for traceability
+  const hashInput = scopedMatches.map((m) => m.match_id).sort().join(',');
+  let hash = 0;
+  for (let i = 0; i < hashInput.length; i++) {
+    hash = ((hash << 5) - hash + hashInput.charCodeAt(i)) | 0;
+  }
+  const dataHash = (hash >>> 0).toString(16).padStart(8, '0');
+
   return {
     matches: scopedMatches,
     playerRows: scopedPlayerRows,
@@ -75,11 +93,13 @@ export function processData(rawJson, playerRegistry, teamConfig, manualRoles) {
     allTeamMatchRows: teamMatchRows,
     // Diagnostics
     unresolvedPlayers: [...unresolvedPlayers],
+    unresolvedNickCounts,
     unlinkedRoles,
     orphanedRoles,
     totalRoleEntries: roles.length,
     rolesMerged: playerRows.filter((p) => p.role_parsed !== null).length,
     rolesLinkedByFallback,
     rolesStillUnlinked,
+    dataHash,
   };
 }

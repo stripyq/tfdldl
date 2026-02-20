@@ -156,11 +156,17 @@ export default function MapStrength({ data, onNavigateMatchLog }) {
           Map Strength
         </h2>
         <div className="flex items-center gap-3">
-          <Toggle
-            options={['loose', 'strict']}
-            value={mode}
-            onChange={setMode}
-          />
+          <div
+            title={mode === 'loose'
+              ? 'Loose: at least one side is a full team roster'
+              : 'Strict: full team vs organized stack (3+ from same team)'}
+          >
+            <Toggle
+              options={['loose', 'strict']}
+              value={mode}
+              onChange={setMode}
+            />
+          </div>
           <ExportButton data={exportData} filename={`wb_map_strength_${mode}.csv`} />
         </div>
       </div>

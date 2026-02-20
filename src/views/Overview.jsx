@@ -290,6 +290,7 @@ function OpponentBreakdown({ rows, onNavigateMatchLog }) {
                 }}
               >
                 {o.winPct.toFixed(0)}%
+                {o.games < 3 && <span className="sample-warn" title="Small sample size">{'\u26A0'}</span>}
               </td>
             </tr>
           ))}
