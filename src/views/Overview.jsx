@@ -1,7 +1,7 @@
 /**
  * Overview view — team identity card for the focus team (wAnnaBees).
  * Shows overall record, avg DPM, avg cap diff, close game record,
- * damage concentration (HHI), most used lineup, date range.
+ * damage concentration (HHI), tempo identity, date range.
  * Uses scopedLoose predicate by default.
  */
 
@@ -38,18 +38,29 @@ export default function Overview({ data, onNavigateMatchLog }) {
     ? focusRows.reduce((s, r) => s + r.damage_hhi, 0) / total
     : 0;
 
-  // Most used lineup
-  const lineupCounts = {};
-  for (const r of focusRows) {
-    lineupCounts[r.lineup_key] = (lineupCounts[r.lineup_key] || 0) + 1;
-  }
-  const topLineup = Object.entries(lineupCounts).sort((a, b) => b[1] - a[1])[0];
-
   // Date range
   const dates = focusRows.map((r) => r.date_local).filter(Boolean).sort();
   const dateRange = dates.length > 0
     ? `${dates[0]} to ${dates[dates.length - 1]}`
     : 'N/A';
+
+  // Tempo identity stats
+  const avgDuration = total > 0
+    ? focusRows.reduce((s, r) => s + r.duration_min, 0) / total
+    : 0;
+  const blowoutWins = focusRows.filter((r) => r.result === 'W' && r.cap_diff >= 3).length;
+  const blowoutLosses = focusRows.filter((r) => r.result === 'L' && r.cap_diff <= -3).length;
+
+  // Close games per map (±1 cap, non-draw)
+  const closeByMap = {};
+  for (const r of closeGames) {
+    if (!closeByMap[r.map]) closeByMap[r.map] = { wins: 0, losses: 0 };
+    if (r.result === 'W') closeByMap[r.map].wins++;
+    if (r.result === 'L') closeByMap[r.map].losses++;
+  }
+  const closeMapRows = Object.entries(closeByMap)
+    .map(([map, s]) => ({ map, ...s, total: s.wins + s.losses }))
+    .sort((a, b) => b.total - a.total);
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
@@ -104,26 +115,73 @@ export default function Overview({ data, onNavigateMatchLog }) {
         </div>
       </div>
 
-      {/* Most used lineup */}
-      {topLineup && (
-        <div
-          className="rounded-lg p-4 mb-6"
-          style={{ backgroundColor: 'var(--color-surface)' }}
-        >
+      {/* Tempo Identity */}
+      <TempoIdentity
+        avgDuration={avgDuration}
+        blowoutWins={blowoutWins}
+        blowoutLosses={blowoutLosses}
+        closeMapRows={closeMapRows}
+      />
+
+      {/* Quick opponent breakdown */}
+      <OpponentBreakdown rows={focusRows} onNavigateMatchLog={onNavigateMatchLog} />
+    </div>
+  );
+}
+
+function TempoIdentity({ avgDuration, blowoutWins, blowoutLosses, closeMapRows }) {
+  return (
+    <div
+      className="rounded-lg p-4 mb-6"
+      style={{ backgroundColor: 'var(--color-surface)' }}
+    >
+      <p
+        className="text-xs uppercase tracking-wide mb-3"
+        style={{ color: 'var(--color-text-muted)' }}
+      >
+        Tempo Identity
+      </p>
+
+      <div className="grid grid-cols-3 gap-4 mb-4">
+        <div>
+          <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Avg Duration</p>
+          <p className="text-lg font-bold">{avgDuration.toFixed(1)} min</p>
+        </div>
+        <div>
+          <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Blowout Wins (3+)</p>
+          <p className="text-lg font-bold" style={{ color: 'var(--color-win)' }}>{blowoutWins}</p>
+        </div>
+        <div>
+          <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Blowout Losses (3+)</p>
+          <p className="text-lg font-bold" style={{ color: 'var(--color-loss)' }}>{blowoutLosses}</p>
+        </div>
+      </div>
+
+      {closeMapRows.length > 0 && (
+        <>
           <p
             className="text-xs uppercase tracking-wide mb-2"
             style={{ color: 'var(--color-text-muted)' }}
           >
-            Most Used Lineup ({topLineup[1]} games)
+            Close Games by Map (±1 cap)
           </p>
-          <p className="text-lg font-semibold">
-            {topLineup[0].split('+').join(' \u00B7 ')}
-          </p>
-        </div>
+          <div className="flex flex-wrap gap-3">
+            {closeMapRows.map((m) => (
+              <span
+                key={m.map}
+                className="text-sm px-2 py-1 rounded"
+                style={{ backgroundColor: 'var(--color-bg)' }}
+              >
+                <span style={{ color: 'var(--color-text-muted)' }}>{m.map}</span>
+                {' '}
+                <span style={{ color: 'var(--color-win)' }}>{m.wins}W</span>
+                {'\u2013'}
+                <span style={{ color: 'var(--color-loss)' }}>{m.losses}L</span>
+              </span>
+            ))}
+          </div>
+        </>
       )}
-
-      {/* Quick opponent breakdown */}
-      <OpponentBreakdown rows={focusRows} onNavigateMatchLog={onNavigateMatchLog} />
     </div>
   );
 }
