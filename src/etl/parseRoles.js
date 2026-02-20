@@ -103,6 +103,70 @@ function parseRolesRaw(rolesRaw, roleNormalize) {
 }
 
 /**
+ * Link unlinked manual role entries (no match_id) to processed matches
+ * using a composite key: (date_local, map, score).
+ *
+ * Mutates manualRoles entries in place (sets match_id when exactly 1 match found).
+ *
+ * @param {Array} manualRoles - manual_roles.json contents
+ * @param {Array} matches - processed matches from parseMatches
+ * @returns {{ linkedCount: number, stillUnlinked: Array<{ entry: Object, reason: string }> }}
+ */
+export function linkUnlinkedRoles(manualRoles, matches) {
+  // Build index: "date_local::map" → [match, ...]
+  const dateMapIndex = new Map();
+  for (const m of matches) {
+    const key = `${m.date_local}::${m.map}`;
+    if (!dateMapIndex.has(key)) dateMapIndex.set(key, []);
+    dateMapIndex.get(key).push(m);
+  }
+
+  let linkedCount = 0;
+  const stillUnlinked = [];
+
+  for (const entry of manualRoles) {
+    // Only process entries with no match_id
+    if (entry.match_id) continue;
+
+    const scoreWb = parseInt(entry.score_wb, 10);
+    const scoreOpp = parseInt(entry.score_opp, 10);
+
+    if (isNaN(scoreWb) || isNaN(scoreOpp)) {
+      stillUnlinked.push({ entry, reason: 'invalid_score' });
+      continue;
+    }
+
+    const key = `${entry.date_local}::${entry.map}`;
+    const candidates = dateMapIndex.get(key) || [];
+
+    // Filter by score match (wB could be on either side)
+    const scoreMatches = candidates.filter(
+      (m) =>
+        (m.score_red === scoreWb && m.score_blue === scoreOpp) ||
+        (m.score_blue === scoreWb && m.score_red === scoreOpp)
+    );
+
+    if (scoreMatches.length === 1) {
+      entry.match_id = scoreMatches[0].match_id;
+      // Infer wb_side if not already set
+      if (!entry.wb_side) {
+        const m = scoreMatches[0];
+        entry.wb_side =
+          m.score_red === scoreWb && m.score_blue === scoreOpp ? 'red' : 'blue';
+      }
+      linkedCount++;
+    } else {
+      stillUnlinked.push({
+        entry,
+        reason: scoreMatches.length === 0 ? 'no_match' : 'ambiguous',
+      });
+    }
+  }
+
+  return { linkedCount, stillUnlinked };
+}
+
+/**
  * Parse all manual roles entries.
  * @param {Array} manualRoles - manual_roles.json contents
  * @param {Object} teamConfig

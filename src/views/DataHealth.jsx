@@ -13,6 +13,8 @@ export default function DataHealth({ data }) {
     unlinkedRoles,
     totalRoleEntries,
     rolesMerged,
+    rolesLinkedByFallback,
+    rolesStillUnlinked,
     pairStats,
     lineupStats,
   } = data;
@@ -166,20 +168,26 @@ export default function DataHealth({ data }) {
       <Section title="Role Annotations">
         <Table
           rows={[
-            ['Manual role entries', data.unlinkedRoles ? unlinkedRoles.length + totalRoleEntries : totalRoleEntries],
             ['Parsed role assignments', totalRoleEntries],
             ['Merged into player rows', rolesMerged],
-            ['Unlinked (match_id not found)', unlinkedRoles.length],
+            ['Linked by fallback (date/map/score)', rolesLinkedByFallback ?? 0],
+            ['Still unlinked', unlinkedRoles.length],
           ]}
           headers={['Metric', 'Count']}
         />
-        {unlinkedRoles.length > 0 && (
-          <div className="mt-2">
-            <p className="text-sm mb-1" style={{ color: 'var(--color-draw)' }}>
-              Unlinked match IDs:
+        {rolesStillUnlinked && rolesStillUnlinked.length > 0 && (
+          <div className="mt-3">
+            <p className="text-sm font-medium mb-1" style={{ color: 'var(--color-draw)' }}>
+              Unlinked role entries:
             </p>
             <List
-              items={unlinkedRoles.map((r) => `${r.match_id} (${r.date_local}, ${r.map})`)}
+              items={rolesStillUnlinked.map((u) => {
+                const e = u.entry;
+                const reason = u.reason === 'no_match' ? 'no matching match'
+                  : u.reason === 'ambiguous' ? 'multiple matches'
+                  : u.reason;
+                return `${e.date_local} ${e.map} (${e.score_wb}-${e.score_opp} vs ${e.opponent}) — ${reason}`;
+              })}
               color="var(--color-draw)"
             />
           </div>

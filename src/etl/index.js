@@ -9,7 +9,7 @@ import { resolveTeams } from './resolveTeams.js';
 import { classifySides } from './classifySides.js';
 import { datasetFlags } from './datasetFlags.js';
 import { computeStats } from './computeStats.js';
-import { parseRoles, mergeRoles } from './parseRoles.js';
+import { linkUnlinkedRoles, parseRoles, mergeRoles } from './parseRoles.js';
 
 /**
  * Process raw match data through the full ETL pipeline.
@@ -40,11 +40,15 @@ export function processData(rawJson, playerRegistry, teamConfig, manualRoles) {
     teamConfig
   );
 
-  // Step 6: Parse and merge role annotations
+  // Step 6a: Link unlinked manual role entries by (date, map, score) fallback
+  const { linkedCount: rolesLinkedByFallback, stillUnlinked: rolesStillUnlinked } =
+    linkUnlinkedRoles(manualRoles, matches);
+
+  // Step 6b: Parse and merge role annotations (now includes newly linked entries)
   const roles = parseRoles(manualRoles, teamConfig);
   mergeRoles(playerRows, roles);
 
-  // Count unlinked role entries (match_id in manualRoles but not in matches)
+  // Count entries still unlinked after fallback
   const matchIdSet = new Set(matches.map((m) => m.match_id));
   const unlinkedRoles = manualRoles.filter((r) => !matchIdSet.has(r.match_id));
 
@@ -68,5 +72,7 @@ export function processData(rawJson, playerRegistry, teamConfig, manualRoles) {
     unlinkedRoles,
     totalRoleEntries: roles.length,
     rolesMerged: playerRows.filter((p) => p.role_parsed !== null).length,
+    rolesLinkedByFallback,
+    rolesStillUnlinked,
   };
 }
