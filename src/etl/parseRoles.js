@@ -121,16 +121,6 @@ function normalizeMapName(name) {
  * @returns {{ linkedCount: number, orphanedRoles: Array, stillUnlinked: Array<{ entry: Object, reason: string }> }}
  */
 export function linkUnlinkedRoles(manualRoles, matches) {
-  // --- Diagnostic: match date range ---
-  const allDates = matches.map((m) => m.date_local).filter(Boolean).sort();
-  if (allDates.length > 0) {
-    console.log(
-      `[linkUnlinkedRoles] Match data range: ${allDates[0]} to ${allDates[allDates.length - 1]} (${matches.length} matches)`
-    );
-  } else {
-    console.warn('[linkUnlinkedRoles] No matches with date_local found');
-  }
-
   // Build indexes:
   //   dateIndex: date_local → [match, ...] (to detect orphans)
   //   dateMapIndex: "date_local::normalizedMap" → [match, ...]
@@ -151,7 +141,6 @@ export function linkUnlinkedRoles(manualRoles, matches) {
   const stillUnlinked = [];
 
   const unlinkedEntries = manualRoles.filter((e) => !e.match_id);
-  console.log(`[linkUnlinkedRoles] ${unlinkedEntries.length} entries to link`);
 
   for (const entry of unlinkedEntries) {
     const scoreWb = parseInt(entry.score_wb, 10);
@@ -167,9 +156,6 @@ export function linkUnlinkedRoles(manualRoles, matches) {
     if (!matchesOnDate) {
       // Date not in match data at all → orphaned (external server / not in qllr)
       orphanedRoles.push(entry);
-      console.log(
-        `[linkUnlinkedRoles] ORPHAN: ${entry.date_local} ${entry.map} ${entry.score_wb}-${entry.score_opp} — date not in match data`
-      );
       continue;
     }
 
@@ -179,13 +165,8 @@ export function linkUnlinkedRoles(manualRoles, matches) {
     const candidates = dateMapIndex.get(key) || [];
 
     if (candidates.length === 0) {
-      // Date exists but map doesn't match anything
-      const mapsOnDate = [...new Set(matchesOnDate.map((m) => m.map))];
-      console.log(
-        `[linkUnlinkedRoles] NO MAP MATCH: ${entry.date_local} "${entry.map}" (norm: "${normMap}") — ` +
-        `matches on date have maps: [${mapsOnDate.join(', ')}] (norm: [${mapsOnDate.map(normalizeMapName).join(', ')}])`
-      );
-      stillUnlinked.push({ entry, reason: 'no_match' });
+      // Date exists but map doesn't match — different session on same date → orphan
+      orphanedRoles.push(entry);
       continue;
     }
 
@@ -205,42 +186,14 @@ export function linkUnlinkedRoles(manualRoles, matches) {
       }
       linkedCount++;
     } else if (scoreMatches.length === 0) {
-      const candScores = candidates.map((m) => `${m.score_red}-${m.score_blue}`);
-      console.log(
-        `[linkUnlinkedRoles] SCORE MISMATCH: ${entry.date_local} ${entry.map} want ${scoreWb}-${scoreOpp} — ` +
-        `candidates have scores: [${candScores.join(', ')}]`
-      );
-      stillUnlinked.push({ entry, reason: 'no_match' });
+      // Map exists on date but scores don't match — different session → orphan
+      orphanedRoles.push(entry);
     } else {
       console.log(
         `[linkUnlinkedRoles] AMBIGUOUS: ${entry.date_local} ${entry.map} ${scoreWb}-${scoreOpp} — ${scoreMatches.length} matches`
       );
       stillUnlinked.push({ entry, reason: 'ambiguous' });
     }
-  }
-
-  // --- Diagnostic: dump ALL matches on each unlinked entry's date ---
-  if (stillUnlinked.length > 0) {
-    console.group(`[linkUnlinkedRoles] UNLINKED DETAIL (${stillUnlinked.length} entries)`);
-    for (const { entry, reason } of stillUnlinked) {
-      const matchesOnDate = dateIndex.get(entry.date_local) || [];
-      console.log(
-        `\n  WANT: date=${entry.date_local} map="${entry.map}" (norm="${normalizeMapName(entry.map)}") ` +
-        `score=${entry.score_wb}-${entry.score_opp}  reason=${reason}`
-      );
-      if (matchesOnDate.length === 0) {
-        console.log(`    No matches on this date.`);
-      } else {
-        console.log(`    ${matchesOnDate.length} matches on ${entry.date_local}:`);
-        for (const m of matchesOnDate) {
-          console.log(
-            `      match_id=${m.match_id}  map="${m.map}" (norm="${normalizeMapName(m.map)}")  ` +
-            `score_red=${m.score_red} score_blue=${m.score_blue}  time=${m.datetime_local}`
-          );
-        }
-      }
-    }
-    console.groupEnd();
   }
 
   console.log(
