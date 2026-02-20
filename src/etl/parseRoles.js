@@ -219,6 +219,30 @@ export function linkUnlinkedRoles(manualRoles, matches) {
     }
   }
 
+  // --- Diagnostic: dump ALL matches on each unlinked entry's date ---
+  if (stillUnlinked.length > 0) {
+    console.group(`[linkUnlinkedRoles] UNLINKED DETAIL (${stillUnlinked.length} entries)`);
+    for (const { entry, reason } of stillUnlinked) {
+      const matchesOnDate = dateIndex.get(entry.date_local) || [];
+      console.log(
+        `\n  WANT: date=${entry.date_local} map="${entry.map}" (norm="${normalizeMapName(entry.map)}") ` +
+        `score=${entry.score_wb}-${entry.score_opp}  reason=${reason}`
+      );
+      if (matchesOnDate.length === 0) {
+        console.log(`    No matches on this date.`);
+      } else {
+        console.log(`    ${matchesOnDate.length} matches on ${entry.date_local}:`);
+        for (const m of matchesOnDate) {
+          console.log(
+            `      match_id=${m.match_id}  map="${m.map}" (norm="${normalizeMapName(m.map)}")  ` +
+            `score_red=${m.score_red} score_blue=${m.score_blue}  time=${m.datetime_local}`
+          );
+        }
+      }
+    }
+    console.groupEnd();
+  }
+
   console.log(
     `[linkUnlinkedRoles] Result: ${linkedCount} linked, ${orphanedRoles.length} orphaned, ${stillUnlinked.length} unlinked`
   );
