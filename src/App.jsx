@@ -2,12 +2,18 @@ import { useState, useEffect } from 'react';
 import FileUpload from './components/FileUpload.jsx';
 import Overview from './views/Overview.jsx';
 import MapStrength from './views/MapStrength.jsx';
+import OpponentMatrix from './views/OpponentMatrix.jsx';
+import Lineups from './views/Lineups.jsx';
+import PlayerCards from './views/PlayerCards.jsx';
 import DataHealth from './views/DataHealth.jsx';
 import { processData } from './etl/index.js';
 
 const VIEWS = [
   { id: 'overview', label: 'Overview' },
   { id: 'maps', label: 'Map Strength' },
+  { id: 'opponents', label: 'Opponents' },
+  { id: 'lineups', label: 'Lineups' },
+  { id: 'players', label: 'Player Cards' },
   { id: 'health', label: 'Data Health' },
 ];
 
@@ -157,6 +163,9 @@ export default function App() {
         <main className="flex-1 overflow-y-auto">
           {activeView === 'overview' && <Overview data={data} />}
           {activeView === 'maps' && <MapStrength data={data} />}
+          {activeView === 'opponents' && <OpponentMatrix data={data} />}
+          {activeView === 'lineups' && <Lineups data={data} />}
+          {activeView === 'players' && <PlayerCards data={data} />}
           {activeView === 'health' && <DataHealth data={data} />}
         </main>
       </div>
