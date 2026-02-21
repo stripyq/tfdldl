@@ -17,14 +17,14 @@ import { processData } from './etl/index.js';
 const VIEWS = [
   { id: 'overview', label: 'Overview' },
   { id: 'maps', label: 'Map Strength' },
-  { id: 'opponents', label: 'Opponents' },
-  { id: 'scouting', label: 'Scouting' },
-  { id: 'opp-players', label: 'Opp. Players' },
-  { id: 'close-games', label: 'Close Games' },
   { id: 'lineups', label: 'Lineups' },
   { id: 'players', label: 'Player Cards' },
   { id: 'roles', label: 'Roles' },
+  { id: 'opponents', label: 'Opponents' },
   { id: 'draft', label: 'Draft Helper' },
+  { id: 'scouting', label: 'Scouting' },
+  { id: 'opp-players', label: 'Opp. Players' },
+  { id: 'close-games', label: 'Close Games' },
   { id: 'matches', label: 'Match Log' },
   { id: 'health', label: 'Data Health' },
 ];
