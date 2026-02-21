@@ -198,6 +198,7 @@ export default function Overview({ data, onNavigateMatchLog }) {
         topCloseLossLineups={topCloseLossLineups}
         closeMapRows={closeMapRows}
         closeOppRows={closeOppRows}
+        onNavigateMatchLog={onNavigateMatchLog}
       />
 
       {/* Tempo Identity */}
@@ -226,6 +227,7 @@ function CloseGamesAnalysis({
   avgNetDmgCloseW, avgNetDmgCloseL,
   avgHhiCloseW, avgHhiCloseL,
   topCloseLossLineups, closeMapRows, closeOppRows,
+  onNavigateMatchLog,
 }) {
   if (closeWinCount + closeLossCount === 0) return null;
 
@@ -234,12 +236,21 @@ function CloseGamesAnalysis({
       className="rounded-lg p-4 mb-6"
       style={{ backgroundColor: 'var(--color-surface)' }}
     >
-      <p
-        className="text-xs uppercase tracking-wide mb-3"
-        style={{ color: 'var(--color-text-muted)' }}
-      >
-        Close Games Deep-Dive (±1 cap)
-      </p>
+      <div className="flex items-center justify-between mb-3">
+        <p
+          className="text-xs uppercase tracking-wide"
+          style={{ color: 'var(--color-text-muted)' }}
+        >
+          Close Games Deep-Dive (±1 cap)
+        </p>
+        <span
+          className="stat-link text-xs"
+          style={{ color: 'var(--color-accent)' }}
+          onClick={() => onNavigateMatchLog?.({ result: 'L', close: true })}
+        >
+          Review close losses &rarr;
+        </span>
+      </div>
 
       {/* Comparison metrics: close wins vs close losses */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
@@ -294,7 +305,17 @@ function CloseGamesAnalysis({
                   {' '}
                   <span style={{ color: 'var(--color-win)' }}>{m.wins}W</span>
                   {'\u2013'}
-                  <span style={{ color: 'var(--color-loss)' }}>{m.losses}L</span>
+                  {m.losses > 0 ? (
+                    <span
+                      className="stat-link"
+                      style={{ color: 'var(--color-loss)' }}
+                      onClick={() => onNavigateMatchLog?.({ map: m.map, result: 'L', close: true })}
+                    >
+                      {m.losses}L
+                    </span>
+                  ) : (
+                    <span style={{ color: 'var(--color-loss)' }}>{m.losses}L</span>
+                  )}
                 </span>
               ))}
             </div>
