@@ -63,11 +63,32 @@ export default function DraftHelper({ data }) {
     return stats;
   }, [focusRows, selectedOpp]);
 
-  // All maps from both global and h2h
+  // Opponent's global map stats (from ALL their matches, not just vs us)
+  const oppGlobalMapStats = useMemo(() => {
+    if (!selectedOpp) return {};
+    const stats = {};
+    for (const r of teamMatchRows) {
+      if (r.team_name !== selectedOpp) continue;
+      if (!stats[r.map]) stats[r.map] = { games: 0, wins: 0, losses: 0 };
+      stats[r.map].games++;
+      if (r.result === 'W') stats[r.map].wins++;
+      if (r.result === 'L') stats[r.map].losses++;
+    }
+    for (const s of Object.values(stats)) {
+      s.winPct = s.games > 0 ? (s.wins / s.games) * 100 : 0;
+    }
+    return stats;
+  }, [teamMatchRows, selectedOpp]);
+
+  // All maps from global, h2h, and opponent global
   const allMaps = useMemo(() => {
-    const mapSet = new Set([...Object.keys(globalMapStats), ...Object.keys(h2hMapStats)]);
+    const mapSet = new Set([
+      ...Object.keys(globalMapStats),
+      ...Object.keys(h2hMapStats),
+      ...Object.keys(oppGlobalMapStats),
+    ]);
     return [...mapSet].sort();
-  }, [globalMapStats, h2hMapStats]);
+  }, [globalMapStats, h2hMapStats, oppGlobalMapStats]);
 
   const hasH2H = Object.keys(h2hMapStats).length > 0;
 
@@ -78,6 +99,7 @@ export default function DraftHelper({ data }) {
       const h2h = h2hMapStats[map] || null;
       const h2hWinPct = h2h ? h2h.winPct : null;
       const h2hGames = h2h ? h2h.games : 0;
+      const oppGlobal = oppGlobalMapStats[map] || null;
 
       // Recommendation logic
       let rec = '';
@@ -88,9 +110,9 @@ export default function DraftHelper({ data }) {
         else rec = 'avoid';
       }
 
-      return { map, global, h2h, h2hGames, h2hWinPct, rec };
+      return { map, global, h2h, h2hGames, h2hWinPct, oppGlobal, rec };
     });
-  }, [allMaps, globalMapStats, h2hMapStats, selectedOpp]);
+  }, [allMaps, globalMapStats, h2hMapStats, oppGlobalMapStats, selectedOpp]);
 
   // Best pick: highest win% vs opponent (min 2 H2H games, fallback to global)
   const bestPick = useMemo(() => {
@@ -129,41 +151,38 @@ export default function DraftHelper({ data }) {
     return null;
   }, [selectedOpp, tableRows]);
 
-  // Ban: opponent's highest global win% map (from their perspective across all H2H)
-  // We compute the opponent's map stats from ALL their H2H matches against us (inverted: our losses = their wins)
+  // Ban: opponent's highest global win% map (from ALL their matches, not just vs us)
   const ban = useMemo(() => {
     if (!selectedOpp) return null;
-    // Opponent's map performance vs us (their win = our loss, from h2hMapStats)
     const candidates = tableRows
-      .filter((r) => r.h2hGames >= MIN_H2H)
-      .map((r) => ({ map: r.map, oppWinPct: 100 - r.h2hWinPct, games: r.h2hGames }))
-      .sort((a, b) => b.oppWinPct - a.oppWinPct);
-    if (candidates.length > 0 && candidates[0].oppWinPct > 50) {
-      return { map: candidates[0].map, pct: candidates[0].oppWinPct };
+      .filter((r) => r.oppGlobal && r.oppGlobal.games >= MIN_H2H)
+      .sort((a, b) => b.oppGlobal.winPct - a.oppGlobal.winPct);
+    if (candidates.length > 0 && candidates[0].oppGlobal.winPct > 50) {
+      return { map: candidates[0].map, pct: candidates[0].oppGlobal.winPct };
     }
     return null;
   }, [selectedOpp, tableRows]);
 
-  // Text summary
+  // Text summary — includes opponent's global % where relevant
   const summaryText = useMemo(() => {
     if (!selectedOpp) return '';
     const parts = [];
     if (bestPick) {
-      const src = bestPick.source === 'global' ? ', global' : ` vs ${selectedOpp}`;
-      parts.push(`Pick: ${bestPick.map} (${bestPick.pct.toFixed(0)}%${src})`);
-    }
-    if (veto) {
-      const src = veto.source === 'global' ? ', global' : ` vs ${selectedOpp}`;
-      parts.push(`Avoid: ${veto.map} (${veto.pct.toFixed(0)}%${src})`);
+      const oppStat = oppGlobalMapStats[bestPick.map];
+      const oppPart = oppStat ? `, them ${oppStat.winPct.toFixed(0)}%` : '';
+      parts.push(`Pick: ${bestPick.map} (you ${bestPick.pct.toFixed(0)}%${oppPart})`);
     }
     if (ban) {
-      parts.push(`Ban: ${ban.map} (${ban.pct.toFixed(0)}% opp win rate)`);
+      // Show our win% on this map too
+      const ourStat = globalMapStats[ban.map];
+      const ourPart = ourStat ? `you ${ourStat.winPct.toFixed(0)}%, ` : '';
+      parts.push(`Ban: ${ban.map} (${ourPart}them ${ban.pct.toFixed(0)}%)`);
     }
-    if (safePick) {
-      parts.push(`Safe fallback: ${safePick.map} (${safePick.pct.toFixed(0)}% global)`);
+    if (safePick && safePick.map !== bestPick?.map) {
+      parts.push(`Safe: ${safePick.map} (you ${safePick.pct.toFixed(0)}%)`);
     }
     return parts.join('. ') + '.';
-  }, [selectedOpp, bestPick, veto, ban, safePick]);
+  }, [selectedOpp, bestPick, ban, safePick, oppGlobalMapStats, globalMapStats]);
 
   function recColor(rec) {
     if (rec === 'pick') return 'var(--color-win)';
@@ -181,12 +200,12 @@ export default function DraftHelper({ data }) {
   // Export data (after recLabel defined so compiler can inline)
   const exportData = tableRows.map((r) => ({
     map: r.map,
-    global_win_pct: r.global.winPct.toFixed(1),
-    global_games: r.global.games,
-    global_record: `${r.global.wins}W-${r.global.losses}L`,
-    h2h_win_pct: r.h2hWinPct !== null ? r.h2hWinPct.toFixed(1) : '',
-    h2h_games: r.h2hGames || '',
-    h2h_record: r.h2h ? `${r.h2h.wins}W-${r.h2h.losses}L` : '',
+    wb_global_win_pct: r.global.winPct.toFixed(1),
+    wb_global_record: `${r.global.wins}W-${r.global.losses}L`,
+    wb_vs_opp_win_pct: r.h2hWinPct !== null ? r.h2hWinPct.toFixed(1) : '',
+    wb_vs_opp_record: r.h2h ? `${r.h2h.wins}W-${r.h2h.losses}L` : '',
+    opp_global_win_pct: r.oppGlobal ? r.oppGlobal.winPct.toFixed(1) : '',
+    opp_global_record: r.oppGlobal ? `${r.oppGlobal.wins}W-${r.oppGlobal.losses}L` : '',
     recommendation: recLabel(r.rec),
   }));
 
@@ -257,10 +276,10 @@ export default function DraftHelper({ data }) {
           />
           <RecCard
             label="Ban"
-            subtitle="Their highest win% map"
+            subtitle="Their highest global win%"
             map={ban?.map}
             pct={ban?.pct}
-            pctLabel="opp win rate"
+            pctLabel="opp global win%"
             color="var(--color-loss)"
           />
         </div>
@@ -313,9 +332,8 @@ export default function DraftHelper({ data }) {
               <tr>
                 {[
                   'Map',
-                  'Global W%',
-                  'Global G',
-                  ...(selectedOpp ? ['H2H W%', 'H2H G', 'Rec'] : []),
+                  'wB Global W%',
+                  ...(selectedOpp ? ['wB vs Opp W%', 'wB vs Opp Record', 'Opp Global W%', 'Opp Global Record', 'Rec'] : ['Games']),
                 ].map((h) => (
                   <th
                     key={h}
@@ -347,14 +365,11 @@ export default function DraftHelper({ data }) {
                       }}
                     >
                       {r.global.winPct.toFixed(0)}%
+                      <span className="text-xs ml-1" style={{ color: 'var(--color-text-muted)' }}>
+                        ({r.global.wins}-{r.global.losses})
+                      </span>
                     </td>
-                    <td
-                      className="py-1.5 border-b"
-                      style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-muted)' }}
-                    >
-                      {r.global.games} ({r.global.wins}W-{r.global.losses}L)
-                    </td>
-                    {selectedOpp && (
+                    {selectedOpp ? (
                       <>
                         <td
                           className="py-1.5 border-b font-medium"
@@ -376,7 +391,29 @@ export default function DraftHelper({ data }) {
                           className="py-1.5 border-b"
                           style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-muted)' }}
                         >
-                          {r.h2h ? `${r.h2hGames} (${r.h2h.wins}W-${r.h2h.losses}L)` : '—'}
+                          {r.h2h ? `${r.h2h.wins}W-${r.h2h.losses}L` : '—'}
+                        </td>
+                        <td
+                          className="py-1.5 border-b font-medium"
+                          style={{
+                            borderColor: 'var(--color-border)',
+                            color: r.oppGlobal
+                              ? r.oppGlobal.winPct >= 60
+                                ? 'var(--color-loss)'
+                                : r.oppGlobal.winPct < 40
+                                  ? 'var(--color-win)'
+                                  : 'var(--color-text)'
+                              : 'var(--color-text-muted)',
+                          }}
+                        >
+                          {r.oppGlobal ? `${r.oppGlobal.winPct.toFixed(0)}%` : '—'}
+                          {r.oppGlobal && r.oppGlobal.games < 3 && <span className="sample-warn" title="Small sample size">{'\u26A0'}</span>}
+                        </td>
+                        <td
+                          className="py-1.5 border-b"
+                          style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-muted)' }}
+                        >
+                          {r.oppGlobal ? `${r.oppGlobal.wins}W-${r.oppGlobal.losses}L` : '—'}
                         </td>
                         <td
                           className="py-1.5 border-b font-semibold"
@@ -385,6 +422,13 @@ export default function DraftHelper({ data }) {
                           {recLabel(r.rec)}
                         </td>
                       </>
+                    ) : (
+                      <td
+                        className="py-1.5 border-b"
+                        style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-muted)' }}
+                      >
+                        {r.global.games}
+                      </td>
                     )}
                   </tr>
                 ))}
