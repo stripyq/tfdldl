@@ -10,10 +10,8 @@ import ExportButton from '../components/ExportButton.jsx';
 import InfoTip from '../components/InfoTip.jsx';
 import { getStatColor } from '../utils/getStatColor.js';
 
-const FOCUS = 'wAnnaBees';
-
 export default function RoleAnalysis({ data }) {
-  const { playerRows, matches, teamMatchRows } = data;
+  const { playerRows, matches, teamMatchRows, focusTeam } = data;
 
   // Build matchMap for win/loss lookups
   const matchMap = useMemo(() => {
@@ -30,7 +28,7 @@ export default function RoleAnalysis({ data }) {
       const match = matchMap.get(r.match_id);
       if (!match) return false;
       const teamOnSide = r.side === 'red' ? match.team_red : match.team_blue;
-      return teamOnSide === FOCUS;
+      return teamOnSide === focusTeam && match.qualifies_loose;
     });
   }, [playerRows, matchMap]);
 
@@ -160,7 +158,7 @@ export default function RoleAnalysis({ data }) {
     // Get all focus team match rows for matches that have role data
     const roleMatchIds = new Set(enrichedRows.map((r) => r.match_id));
     const focusTeamRows = teamMatchRows.filter(
-      (r) => r.team_name === FOCUS && roleMatchIds.has(r.match_id)
+      (r) => r.team_name === focusTeam && roleMatchIds.has(r.match_id)
     );
 
     const withRotation = focusTeamRows.filter((r) => rotationMatchIds.has(r.match_id));

@@ -167,7 +167,7 @@ export function buildPairStats(teamMatchRows, focusTeam, playerRows) {
             pairLookupMissExamples.push(`${row.match_id} ${row.side}: ${missing}`);
           }
         }
-        pair.total_net_damage += (p1?.net_damage || 0) + (p2?.net_damage || 0);
+        pair.total_net_damage += (p1?.net_damage ?? 0) + (p2?.net_damage ?? 0);
         pair.maps_played.add(row.map);
       }
     }

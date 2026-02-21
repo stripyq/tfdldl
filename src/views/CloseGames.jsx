@@ -31,10 +31,13 @@ export default function CloseGames({ data, onNavigateMatchLog }) {
       return rows.reduce((s, r) => s + fn(r), 0) / rows.length;
     }
 
+    // * 4: avg_net_damage is per-player average, multiply by 4 for team total in 4v4
     const avgNetDmgW = avgOf(closeWins, (r) => r.avg_net_damage * 4);
     const avgNetDmgL = avgOf(closeLosses, (r) => r.avg_net_damage * 4);
-    const avgDurW = avgOf(closeWins, (r) => r.duration_min);
-    const avgDurL = avgOf(closeLosses, (r) => r.duration_min);
+    const durWinRows = closeWins.filter((r) => r.duration_min != null);
+    const durLossRows = closeLosses.filter((r) => r.duration_min != null);
+    const avgDurW = avgOf(durWinRows, (r) => r.duration_min);
+    const avgDurL = avgOf(durLossRows, (r) => r.duration_min);
     const avgHhiW = avgOf(closeWins, (r) => r.damage_hhi);
     const avgHhiL = avgOf(closeLosses, (r) => r.damage_hhi);
     const conversionGap = avgNetDmgL - avgNetDmgW;

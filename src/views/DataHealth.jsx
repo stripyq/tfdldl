@@ -24,6 +24,7 @@ export default function DataHealth({ data }) {
     duplicateRoleExamples,
     durationParseErrors,
     pairLookupMisses,
+    aliasCollisions,
     pairStats,
     lineupStats,
     scopeDate,
@@ -269,6 +270,7 @@ export default function DataHealth({ data }) {
             ['Pair player lookup misses', pairLookupMisses ?? 0],
             ['Lineup combinations', lineupStats.length],
             ['Date range', dateRange],
+            ['Alias collisions (cross-player)', aliasCollisions ?? 0],
             ['Duration parse errors', durationParseErrors ?? 0],
           ]}
           headers={['Metric', 'Value']}

@@ -23,7 +23,7 @@ import { buildNickNormalizer } from './normalizeNick.js';
  */
 export function processData(rawJson, playerRegistry, teamConfig, manualRoles) {
   // Step 1: Parse raw matches into normalized structures (needs teamConfig for clan_tag_patterns)
-  const { matches, playerRows, unresolvedPlayers, durationParseErrors } = parseMatches(rawJson, playerRegistry, teamConfig);
+  const { matches, playerRows, unresolvedPlayers, durationParseErrors, aliasCollisions } = parseMatches(rawJson, playerRegistry, teamConfig);
 
   // Step 2: Resolve team membership per player per era
   resolveTeams(playerRows, matches, playerRegistry, teamConfig);
@@ -110,6 +110,7 @@ export function processData(rawJson, playerRegistry, teamConfig, manualRoles) {
     duplicateRoleExamples,
     durationParseErrors,
     pairLookupMisses,
+    aliasCollisions,
     dataHash,
   };
 }
