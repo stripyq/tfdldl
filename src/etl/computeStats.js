@@ -11,9 +11,10 @@ function computePlayerStats(playerRows, matches) {
 
   for (const row of playerRows) {
     const match = matchMap.get(row.match_id);
-    const durMin = match ? match.duration_min : 1;
+    const durMin = match?.duration_min;
 
-    row.dpm = durMin > 0 ? row.dmg_dealt / durMin : 0;
+    // null duration → null DPM (excluded from rate-based averages)
+    row.dpm = durMin != null && durMin > 0 ? row.dmg_dealt / durMin : null;
     row.net_damage = row.dmg_dealt - row.dmg_taken;
     row.kd_ratio = row.frags / Math.max(row.deaths, 1);
     row.frag_efficiency =
@@ -63,7 +64,10 @@ function buildTeamMatchRows(matches, playerRows) {
       const totalCaps = players.reduce((s, p) => s + p.caps, 0);
       const totalDefends = players.reduce((s, p) => s + p.defends, 0);
 
-      const avgDpm = players.reduce((s, p) => s + p.dpm, 0) / players.length;
+      const dpmPlayers = players.filter((p) => p.dpm != null);
+      const avgDpm = dpmPlayers.length > 0
+        ? dpmPlayers.reduce((s, p) => s + p.dpm, 0) / dpmPlayers.length
+        : null;
       const avgNetDamage = players.reduce((s, p) => s + p.net_damage, 0) / players.length;
       const avgKd = players.reduce((s, p) => s + p.kd_ratio, 0) / players.length;
 
@@ -118,6 +122,8 @@ function buildTeamMatchRows(matches, playerRows) {
  */
 export function buildPairStats(teamMatchRows, focusTeam, playerRows) {
   const pairMap = new Map();
+  let pairLookupMisses = 0;
+  const pairLookupMissExamples = [];
 
   // Build playerRow index: match_id::side → Map<canonical, playerRow>
   const playerIndex = new Map();
@@ -154,10 +160,24 @@ export function buildPairStats(teamMatchRows, focusTeam, playerRows) {
         // Sum the two specific players' net_damage (not team average)
         const p1 = sidePlayers?.get(names[i]);
         const p2 = sidePlayers?.get(names[j]);
+        if (!p1 || !p2) {
+          pairLookupMisses++;
+          if (pairLookupMissExamples.length < 5) {
+            const missing = !p1 ? names[i] : names[j];
+            pairLookupMissExamples.push(`${row.match_id} ${row.side}: ${missing}`);
+          }
+        }
         pair.total_net_damage += (p1?.net_damage || 0) + (p2?.net_damage || 0);
         pair.maps_played.add(row.map);
       }
     }
+  }
+
+  if (pairLookupMisses > 0) {
+    console.warn(
+      `[buildPairStats] ${pairLookupMisses} player lookup misses:`,
+      pairLookupMissExamples
+    );
   }
 
   // Finalize pair stats
@@ -175,7 +195,7 @@ export function buildPairStats(teamMatchRows, focusTeam, playerRows) {
     });
   }
 
-  return pairStats;
+  return { pairStats, pairLookupMisses };
 }
 
 /**

@@ -38,9 +38,9 @@ export function resolveTeams(playerRows, matches, playerRegistry, teamConfig) {
       continue;
     }
 
-    // Null/invalid date guard — default to latest era, flag for diagnostics
+    // Null/invalid date guard — mark UNAFFILIATED to avoid inflating team counts
     if (!dateLocal) {
-      row.team_membership = entry.team_2026 || entry.team_2024 || 'UNAFFILIATED';
+      row.team_membership = 'UNAFFILIATED';
       row.date_invalid = true;
       continue;
     }

@@ -37,8 +37,8 @@ export function processData(rawJson, playerRegistry, teamConfig, manualRoles) {
   // Step 5: Compute derived stats (player, team match rows)
   const { teamMatchRows } = computeStats(matches, playerRows);
 
-  // Step 6a: Clone manualRoles to avoid mutating config objects across uploads
-  const rolesCopy = manualRoles.map((r) => ({ ...r }));
+  // Step 6a: Deep clone manualRoles to avoid mutating config objects across uploads
+  const rolesCopy = structuredClone(manualRoles);
 
   // Step 6b: Link unlinked manual role entries by (date, map, score) fallback
   const {
@@ -66,7 +66,7 @@ export function processData(rawJson, playerRegistry, teamConfig, manualRoles) {
   const scopedTeamMatchRows = teamMatchRows.filter((r) => scopedMatchIds.has(r.match_id));
 
   // Step 7: Pair and lineup stats from scoped data only
-  const pairStats = buildPairStats(scopedTeamMatchRows, teamConfig.focus_team, scopedPlayerRows);
+  const { pairStats, pairLookupMisses } = buildPairStats(scopedTeamMatchRows, teamConfig.focus_team, scopedPlayerRows);
   const lineupStats = buildLineupStats(scopedTeamMatchRows, teamConfig.focus_team);
 
   // Top unresolved nick counts (scoped)
@@ -109,6 +109,7 @@ export function processData(rawJson, playerRegistry, teamConfig, manualRoles) {
     duplicateRoles,
     duplicateRoleExamples,
     durationParseErrors,
+    pairLookupMisses,
     dataHash,
   };
 }
