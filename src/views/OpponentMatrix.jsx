@@ -10,6 +10,18 @@ import { getStatColor, getStatBg } from '../utils/getStatColor.js';
 
 const MIN_H2H = 2;
 
+function fmtRatio(f, a) {
+  if (f === 0 && a === 0) return '\u2014';
+  if (a === 0) return '\u221E';
+  return (f / a).toFixed(2);
+}
+
+function ratioColor(f, a) {
+  if (a === 0) return f > 0 ? 'var(--color-win)' : undefined;
+  const r = f / a;
+  return r >= 1.0 ? 'var(--color-win)' : 'var(--color-loss)';
+}
+
 export default function OpponentMatrix({ data, onNavigateMatchLog }) {
   const { teamMatchRows, focusTeam } = data;
 
@@ -108,10 +120,12 @@ export default function OpponentMatrix({ data, onNavigateMatchLog }) {
   const globalMapStats = useMemo(() => {
     const stats = {};
     for (const r of focusRows) {
-      if (!stats[r.map]) stats[r.map] = { games: 0, wins: 0, losses: 0 };
+      if (!stats[r.map]) stats[r.map] = { games: 0, wins: 0, losses: 0, flagsFor: 0, flagsAgainst: 0 };
       stats[r.map].games++;
       if (r.result === 'W') stats[r.map].wins++;
       if (r.result === 'L') stats[r.map].losses++;
+      stats[r.map].flagsFor += r.score_for;
+      stats[r.map].flagsAgainst += r.score_against;
     }
     for (const s of Object.values(stats)) {
       s.winPct = s.games > 0 ? (s.wins / s.games) * 100 : 0;
@@ -124,10 +138,12 @@ export default function OpponentMatrix({ data, onNavigateMatchLog }) {
     const stats = {};
     for (const r of focusRows) {
       if (r.opponent_team !== selectedOpp) continue;
-      if (!stats[r.map]) stats[r.map] = { games: 0, wins: 0, losses: 0 };
+      if (!stats[r.map]) stats[r.map] = { games: 0, wins: 0, losses: 0, flagsFor: 0, flagsAgainst: 0 };
       stats[r.map].games++;
       if (r.result === 'W') stats[r.map].wins++;
       if (r.result === 'L') stats[r.map].losses++;
+      stats[r.map].flagsFor += r.score_for;
+      stats[r.map].flagsAgainst += r.score_against;
     }
     for (const s of Object.values(stats)) {
       s.winPct = s.games > 0 ? (s.wins / s.games) * 100 : 0;
@@ -263,6 +279,8 @@ export default function OpponentMatrix({ data, onNavigateMatchLog }) {
     map: r.map,
     wb_global_win_pct: r.global.winPct.toFixed(1),
     wb_global_record: `${r.global.wins}W-${r.global.losses}L`,
+    flags_ratio_h2h: r.h2h ? fmtRatio(r.h2h.flagsFor, r.h2h.flagsAgainst) : '',
+    flags_ratio_global: fmtRatio(r.global.flagsFor || 0, r.global.flagsAgainst || 0),
     wb_vs_opp_win_pct: r.h2hWinPct !== null ? r.h2hWinPct.toFixed(1) : '',
     wb_vs_opp_record: r.h2h ? `${r.h2h.wins}W-${r.h2h.losses}L` : '',
     opp_global_win_pct: r.oppGlobal ? r.oppGlobal.winPct.toFixed(1) : '',
@@ -523,7 +541,7 @@ export default function OpponentMatrix({ data, onNavigateMatchLog }) {
               <table className="w-full text-sm">
                 <thead>
                   <tr>
-                    {['Map', 'wB Global W%', 'wB vs Opp W%', 'wB vs Opp Record', 'Opp Global W%', 'Opp Global Record', 'Rec'].map((h) => (
+                    {['Map', 'wB Global W%', 'F.Ratio', 'wB vs Opp W%', 'wB vs Opp Record', 'Opp Global W%', 'Opp Global Record', 'Rec'].map((h) => (
                       <th
                         key={h}
                         className="text-left pb-2 border-b font-medium"
@@ -553,6 +571,20 @@ export default function OpponentMatrix({ data, onNavigateMatchLog }) {
                           <span className="text-xs ml-1" style={{ color: 'var(--color-text-muted)' }}>
                             ({r.global.wins}-{r.global.losses})
                           </span>
+                        </td>
+                        <td
+                          className="py-1.5 border-b font-medium"
+                          style={{
+                            borderColor: 'var(--color-border)',
+                            color: r.h2h
+                              ? ratioColor(r.h2h.flagsFor, r.h2h.flagsAgainst)
+                              : ratioColor(r.global.flagsFor || 0, r.global.flagsAgainst || 0),
+                          }}
+                        >
+                          {r.h2h
+                            ? fmtRatio(r.h2h.flagsFor, r.h2h.flagsAgainst)
+                            : fmtRatio(r.global.flagsFor || 0, r.global.flagsAgainst || 0)}
+                          {r.h2h && r.h2hGames < 3 && <span className="sample-warn" title={`Low sample size: only ${r.h2hGames} game${r.h2hGames !== 1 ? 's' : ''}. Patterns may not be reliable.`}>{'\u26A0'}</span>}
                         </td>
                         <td
                           className="py-1.5 border-b font-medium"

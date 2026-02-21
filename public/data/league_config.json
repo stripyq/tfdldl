@@ -1,0 +1,11 @@
+{
+  "league_name": "CTF 4v4 Spring League 2026",
+  "regular_format": "BO3",
+  "playoff_format": "BO5",
+  "scoring": "map_wins",
+  "map_pool": ["q3wcp9", "japanesecastles", "infinity", "troubledwaters", "ironworks"],
+  "tiebreakers": ["total_points", "h2h", "match_wins", "flags_ratio", "maps_lost"],
+  "playoff_coin_toss": {"heads": "q3wcp9", "tails": "japanesecastles"},
+  "season_start": "2026-02-23",
+  "season_end": "2026-05-17"
+}

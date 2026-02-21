@@ -116,17 +116,19 @@ export default function App() {
     async function loadConfigs() {
       try {
         const base = import.meta.env.BASE_URL;
-        const [registryRes, teamConfigRes, rolesRes, notesRes] = await Promise.all([
+        const [registryRes, teamConfigRes, rolesRes, notesRes, leagueRes] = await Promise.all([
           fetch(`${base}data/player_registry.json`),
           fetch(`${base}data/team_config.json`),
           fetch(`${base}data/manual_roles.json`),
           fetch(`${base}data/match_notes.json`),
+          fetch(`${base}data/league_config.json`),
         ]);
         const playerRegistry = await registryRes.json();
         const teamConfig = await teamConfigRes.json();
         const manualRoles = await rolesRes.json();
         const matchNotes = await notesRes.json();
-        const loadedConfigs = { playerRegistry, teamConfig, manualRoles };
+        const leagueConfig = leagueRes.ok ? await leagueRes.json() : null;
+        const loadedConfigs = { playerRegistry, teamConfig, manualRoles, leagueConfig };
         setConfigs(loadedConfigs);
         setLoadedNotes(Array.isArray(matchNotes) ? matchNotes : []);
 
@@ -328,7 +330,7 @@ export default function App() {
 
         {/* Main content */}
         <main className="flex-1 overflow-y-auto">
-          {activeView === 'overview' && <Overview data={data} onNavigateMatchLog={navigateToMatchLog} matchNotes={mergedNotes} />}
+          {activeView === 'overview' && <Overview data={data} onNavigateMatchLog={navigateToMatchLog} matchNotes={mergedNotes} leagueConfig={configs?.leagueConfig} />}
           {activeView === 'maps' && <MapStrength data={data} onNavigateMatchLog={navigateToMatchLog} matchNotes={mergedNotes} />}
           {activeView === 'opponents' && <OpponentMatrix data={data} onNavigateMatchLog={navigateToMatchLog} />}
           {activeView === 'scouting' && <OpponentScouting data={data} />}

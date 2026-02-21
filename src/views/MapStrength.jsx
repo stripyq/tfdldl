@@ -43,6 +43,8 @@ export default function MapStrength({ data, onNavigateMatchLog, matchNotes }) {
           blowouts: 0,
           closeGames: 0,
           durations: [],
+          flagsFor: 0,
+          flagsAgainst: 0,
         };
       }
       const m = mapMap[r.map];
@@ -55,6 +57,8 @@ export default function MapStrength({ data, onNavigateMatchLog, matchNotes }) {
       m.totalHhi += r.damage_hhi;
       m.totalDuration += r.duration_min;
       m.totalCaps += r.score_for + r.score_against;
+      m.flagsFor += r.score_for;
+      m.flagsAgainst += r.score_against;
       if (Math.abs(r.cap_diff) >= 3) m.blowouts++;
       if (Math.abs(r.cap_diff) <= 1 && r.result !== 'D') m.closeGames++;
       m.durations.push({ dur: r.duration_min, result: r.result });
@@ -85,6 +89,9 @@ export default function MapStrength({ data, onNavigateMatchLog, matchNotes }) {
           avgDpm: m.games > 0 ? m.totalDpm / m.games : 0,
           avgHhi: m.games > 0 ? m.totalHhi / m.games : 0,
           avgDuration,
+          flagsFor: m.flagsFor,
+          flagsAgainst: m.flagsAgainst,
+          flagsRatio: m.flagsAgainst > 0 ? m.flagsFor / m.flagsAgainst : (m.flagsFor > 0 ? Infinity : null),
           blowoutRate: m.games > 0 ? (m.blowouts / m.games) * 100 : 0,
           closeRate: m.games > 0 ? (m.closeGames / m.games) * 100 : 0,
           capsPerMin: m.totalDuration > 0 ? m.totalCaps / m.totalDuration : 0,
@@ -123,6 +130,7 @@ export default function MapStrength({ data, onNavigateMatchLog, matchNotes }) {
       avgNetDmg: 'avgNetDmg',
       avgDpm: 'avgDpm',
       avgHhi: 'avgHhi',
+      flagsRatio: 'flagsRatio',
     }[sortCol] || 'games';
 
     return [...mapStats].sort((a, b) => {
@@ -173,6 +181,9 @@ export default function MapStrength({ data, onNavigateMatchLog, matchNotes }) {
     avg_net_dmg: m.avgNetDmg.toFixed(0),
     avg_dpm: m.avgDpm.toFixed(0),
     avg_hhi: m.avgHhi.toFixed(3),
+    flags_for: m.flagsFor,
+    flags_against: m.flagsAgainst,
+    flags_ratio: m.flagsRatio === null ? '' : m.flagsRatio === Infinity ? 'Inf' : m.flagsRatio.toFixed(2),
   }));
 
   function handleSort(col) {
@@ -194,6 +205,7 @@ export default function MapStrength({ data, onNavigateMatchLog, matchNotes }) {
     { key: 'avgNetDmg', label: 'Net Dmg' },
     { key: 'avgDpm', label: 'DPM' },
     { key: 'avgHhi', label: <>HHI <InfoTip text="Damage concentration index. 0.25 = perfectly equal damage spread. Higher = one player doing most of the damage." /></> },
+    { key: 'flagsRatio', label: <>F.Ratio <InfoTip text="Flags captured / flags conceded on this map. Below 1.0 = conceding more flags than capturing." /></> },
   ];
 
   function fmtCell(col, row) {
@@ -206,6 +218,11 @@ export default function MapStrength({ data, onNavigateMatchLog, matchNotes }) {
       case 'avgNetDmg': return row.avgNetDmg.toFixed(0);
       case 'avgDpm': return row.avgDpm.toFixed(0);
       case 'avgHhi': return row.avgHhi.toFixed(3);
+      case 'flagsRatio': {
+        if (row.flagsRatio === null) return '\u2014';
+        if (row.flagsRatio === Infinity) return '\u221E';
+        return row.flagsRatio.toFixed(2);
+      }
       default: return row[col];
     }
   }
@@ -216,6 +233,11 @@ export default function MapStrength({ data, onNavigateMatchLog, matchNotes }) {
     if (col === 'avgNetDmg') return getStatColor(row.avgNetDmg, 'netDmg');
     if (col === 'avgDpm') return getStatColor(row.avgDpm, 'dpm');
     if (col === 'avgHhi') return getStatColor(row.avgHhi, 'hhi');
+    if (col === 'flagsRatio') {
+      if (row.flagsRatio === null) return undefined;
+      if (row.flagsRatio === Infinity) return 'var(--color-win)';
+      return row.flagsRatio >= 1.0 ? 'var(--color-win)' : 'var(--color-loss)';
+    }
     return undefined;
   }
 
