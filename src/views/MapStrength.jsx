@@ -19,11 +19,13 @@ export default function MapStrength({ data, onNavigateMatchLog, matchNotes }) {
 
   const predicate = mode === 'strict' ? 'qualifies_strict' : 'qualifies_loose';
 
-  const mapStats = useMemo(() => {
-    const focusRows = teamMatchRows.filter(
+  const focusRows = useMemo(() => {
+    return teamMatchRows.filter(
       (r) => r.team_name === 'wAnnaBees' && r[predicate]
     );
+  }, [teamMatchRows, predicate]);
 
+  const mapStats = useMemo(() => {
     const mapMap = {};
     for (const r of focusRows) {
       if (!mapMap[r.map]) {
@@ -36,6 +38,11 @@ export default function MapStrength({ data, onNavigateMatchLog, matchNotes }) {
           totalNetDmg: 0,
           totalDpm: 0,
           totalHhi: 0,
+          totalDuration: 0,
+          totalCaps: 0,
+          blowouts: 0,
+          closeGames: 0,
+          durations: [],
         };
       }
       const m = mapMap[r.map];
@@ -46,22 +53,64 @@ export default function MapStrength({ data, onNavigateMatchLog, matchNotes }) {
       m.totalNetDmg += r.avg_net_damage;
       m.totalDpm += r.avg_dpm;
       m.totalHhi += r.damage_hhi;
+      m.totalDuration += r.duration_min;
+      m.totalCaps += r.score_for + r.score_against;
+      if (Math.abs(r.cap_diff) >= 3) m.blowouts++;
+      if (Math.abs(r.cap_diff) <= 1 && r.result !== 'D') m.closeGames++;
+      m.durations.push({ dur: r.duration_min, result: r.result });
     }
 
     return Object.values(mapMap)
       .filter((m) => m.games >= MIN_GAMES)
-      .map((m) => ({
-        map: m.map,
-        games: m.games,
-        wins: m.wins,
-        losses: m.losses,
-        winPct: m.games > 0 ? (m.wins / m.games) * 100 : 0,
-        avgCapDiff: m.games > 0 ? m.totalCapDiff / m.games : 0,
-        avgNetDmg: m.games > 0 ? m.totalNetDmg / m.games : 0,
-        avgDpm: m.games > 0 ? m.totalDpm / m.games : 0,
-        avgHhi: m.games > 0 ? m.totalHhi / m.games : 0,
-      }));
-  }, [teamMatchRows, predicate]);
+      .map((m) => {
+        const avgDuration = m.games > 0 ? m.totalDuration / m.games : 0;
+        // Split at map's median duration for fast/slow comparison
+        const sortedDur = [...m.durations].sort((a, b) => a.dur - b.dur);
+        const medianDur = sortedDur.length > 0 ? sortedDur[Math.floor(sortedDur.length / 2)].dur : 0;
+        const fastGames = m.durations.filter((d) => d.dur < medianDur);
+        const slowGames = m.durations.filter((d) => d.dur >= medianDur);
+        const fastWinPct = fastGames.length > 0
+          ? (fastGames.filter((d) => d.result === 'W').length / fastGames.length) * 100 : null;
+        const slowWinPct = slowGames.length > 0
+          ? (slowGames.filter((d) => d.result === 'W').length / slowGames.length) * 100 : null;
+
+        return {
+          map: m.map,
+          games: m.games,
+          wins: m.wins,
+          losses: m.losses,
+          winPct: m.games > 0 ? (m.wins / m.games) * 100 : 0,
+          avgCapDiff: m.games > 0 ? m.totalCapDiff / m.games : 0,
+          avgNetDmg: m.games > 0 ? m.totalNetDmg / m.games : 0,
+          avgDpm: m.games > 0 ? m.totalDpm / m.games : 0,
+          avgHhi: m.games > 0 ? m.totalHhi / m.games : 0,
+          avgDuration,
+          blowoutRate: m.games > 0 ? (m.blowouts / m.games) * 100 : 0,
+          closeRate: m.games > 0 ? (m.closeGames / m.games) * 100 : 0,
+          capsPerMin: m.totalDuration > 0 ? m.totalCaps / m.totalDuration : 0,
+          medianDur,
+          fastWinPct,
+          slowWinPct,
+          fastCount: fastGames.length,
+          slowCount: slowGames.length,
+        };
+      });
+  }, [focusRows]);
+
+  // Tempo labels based on avg duration percentile across maps
+  const tempoLabels = useMemo(() => {
+    if (mapStats.length === 0) return {};
+    const durations = mapStats.map((m) => m.avgDuration).sort((a, b) => a - b);
+    const p33 = durations[Math.floor(durations.length / 3)] || 0;
+    const p66 = durations[Math.floor((durations.length * 2) / 3)] || 0;
+    const labels = {};
+    for (const m of mapStats) {
+      if (m.avgDuration <= p33) labels[m.map] = 'Fast';
+      else if (m.avgDuration >= p66) labels[m.map] = 'Slow';
+      else labels[m.map] = 'Medium';
+    }
+    return labels;
+  }, [mapStats]);
 
   const sorted = useMemo(() => {
     const colKey = {
@@ -93,9 +142,6 @@ export default function MapStrength({ data, onNavigateMatchLog, matchNotes }) {
   // Formation breakdown per map from match notes
   const mapFormationStats = useMemo(() => {
     if (!matchNotes || matchNotes.size === 0) return [];
-    const focusRows = teamMatchRows.filter(
-      (r) => r.team_name === 'wAnnaBees' && r[predicate]
-    );
     const byMap = {};
     for (const r of focusRows) {
       const note = matchNotes.get(r.match_id);
@@ -114,7 +160,7 @@ export default function MapStrength({ data, onNavigateMatchLog, matchNotes }) {
           .sort((a, b) => b.games - a.games),
       }))
       .sort((a, b) => b.formations.reduce((s, f) => s + f.games, 0) - a.formations.reduce((s, f) => s + f.games, 0));
-  }, [teamMatchRows, predicate, matchNotes]);
+  }, [focusRows, matchNotes]);
 
   // Export-ready flat data
   const exportData = sorted.map((m) => ({
@@ -321,6 +367,65 @@ export default function MapStrength({ data, onNavigateMatchLog, matchNotes }) {
               </div>
             </div>
           )}
+
+          {/* Tempo stats per map */}
+          <div
+            className="rounded-lg p-4 mb-6"
+            style={{ backgroundColor: 'var(--color-surface)' }}
+          >
+            <p className="text-xs uppercase tracking-wide mb-3" style={{ color: 'var(--color-text-muted)' }}>
+              Map Tempo <InfoTip text="Tempo classification based on avg duration percentile across all maps. Fast/Medium/Slow." />
+            </p>
+            <table className="w-full text-sm">
+              <thead>
+                <tr>
+                  {['Map', 'Tempo', 'Avg Dur', 'Blowout%', 'Close%', 'Caps/min', 'Win% Fast', 'Win% Slow'].map((h) => (
+                    <th
+                      key={h}
+                      className="text-left pb-2 border-b font-medium"
+                      style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-muted)' }}
+                    >
+                      {h === 'Blowout%' ? <>{h} <InfoTip text="Percentage of games decided by 3+ cap difference." /></> :
+                       h === 'Close%' ? <>{h} <InfoTip text="Percentage of games decided by \u00B11 cap difference." /></> :
+                       h === 'Win% Fast' ? <>{h} <InfoTip text="Win% in games below map's median duration." /></> :
+                       h === 'Win% Slow' ? <>{h} <InfoTip text="Win% in games at or above map's median duration." /></> :
+                       h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {[...mapStats].sort((a, b) => a.avgDuration - b.avgDuration).map((m) => {
+                  const tempo = tempoLabels[m.map] || 'Medium';
+                  const tempoColor = tempo === 'Fast' ? 'var(--color-win)' : tempo === 'Slow' ? 'var(--color-loss)' : 'var(--color-draw)';
+                  return (
+                    <tr key={m.map}>
+                      <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)' }}>{m.map}</td>
+                      <td className="py-1.5 border-b font-semibold" style={{ borderColor: 'var(--color-border)', color: tempoColor }}>
+                        {tempo}
+                      </td>
+                      <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)' }}>{m.avgDuration.toFixed(1)}m</td>
+                      <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)' }}>{m.blowoutRate.toFixed(0)}%</td>
+                      <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)' }}>{m.closeRate.toFixed(0)}%</td>
+                      <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)' }}>{m.capsPerMin.toFixed(2)}</td>
+                      <td className="py-1.5 border-b" style={{
+                        borderColor: 'var(--color-border)',
+                        color: m.fastWinPct !== null ? getStatColor(m.fastWinPct, 'winPct') : undefined,
+                      }}>
+                        {m.fastWinPct !== null ? `${m.fastWinPct.toFixed(0)}% (${m.fastCount})` : '\u2014'}
+                      </td>
+                      <td className="py-1.5 border-b" style={{
+                        borderColor: 'var(--color-border)',
+                        color: m.slowWinPct !== null ? getStatColor(m.slowWinPct, 'winPct') : undefined,
+                      }}>
+                        {m.slowWinPct !== null ? `${m.slowWinPct.toFixed(0)}% (${m.slowCount})` : '\u2014'}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
 
           {/* Bar chart */}
           <div

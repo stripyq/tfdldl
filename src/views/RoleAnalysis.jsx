@@ -5,8 +5,9 @@
  * Section 3: Role Rotation Impact
  */
 
-import { useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import ExportButton from '../components/ExportButton.jsx';
+import InfoTip from '../components/InfoTip.jsx';
 import { getStatColor } from '../utils/getStatColor.js';
 
 const FOCUS = 'wAnnaBees';
@@ -186,6 +187,115 @@ export default function RoleAnalysis({ data }) {
       withoutRotation: summarize(withoutRotation),
     };
   }, [enrichedRows, teamMatchRows]);
+
+  // --- Section 4: Role × Map Breakdown ---
+  const roleMapStats = useMemo(() => {
+    const combos = {};
+    for (const r of enrichedRows) {
+      const role = r.role_parsed;
+      const map = matchMap.get(r.match_id)?.map;
+      if (!map) continue;
+      const key = `${role}::${map}`;
+      if (!combos[key]) {
+        combos[key] = {
+          role, map, games: 0, wins: 0,
+          totalDpm: 0, totalNetDmg: 0,
+          totalRl: 0, totalRg: 0, totalSg: 0, totalLg: 0, totalPg: 0,
+        };
+      }
+      const c = combos[key];
+      c.games++;
+      const res = rowResult(r, matchMap);
+      if (res === 'W') c.wins++;
+      c.totalDpm += r.dpm;
+      c.totalNetDmg += r.net_damage;
+      c.totalRl += r.rl_share;
+      c.totalRg += r.rg_share;
+      c.totalSg += r.sg_share;
+      c.totalLg += r.lg_share;
+      c.totalPg += r.dmg_dealt > 0 ? r.pg / r.dmg_dealt : 0;
+    }
+    // Group by role
+    const byRole = {};
+    for (const c of Object.values(combos)) {
+      if (!byRole[c.role]) byRole[c.role] = [];
+      byRole[c.role].push({
+        map: c.map,
+        games: c.games,
+        winPct: c.games > 0 ? (c.wins / c.games) * 100 : 0,
+        avgDpm: c.games > 0 ? c.totalDpm / c.games : 0,
+        avgNetDmg: c.games > 0 ? c.totalNetDmg / c.games : 0,
+        avgRl: c.games > 0 ? (c.totalRl / c.games) * 100 : 0,
+        avgRg: c.games > 0 ? (c.totalRg / c.games) * 100 : 0,
+        avgSg: c.games > 0 ? (c.totalSg / c.games) * 100 : 0,
+        avgLg: c.games > 0 ? (c.totalLg / c.games) * 100 : 0,
+        avgPg: c.games > 0 ? (c.totalPg / c.games) * 100 : 0,
+      });
+    }
+    // Sort each role's maps by games
+    for (const role of Object.keys(byRole)) {
+      byRole[role].sort((a, b) => b.games - a.games);
+    }
+    return byRole;
+  }, [enrichedRows, matchMap]);
+
+  // --- Section 5: Role Swap Impact ---
+  const roleSwapStats = useMemo(() => {
+    // For each player-map combo, find their most common role (primary)
+    const playerMapRoles = {};
+    for (const r of enrichedRows) {
+      const match = matchMap.get(r.match_id);
+      if (!match) continue;
+      const key = `${r.canonical}::${match.map}`;
+      if (!playerMapRoles[key]) playerMapRoles[key] = {};
+      const role = r.role_parsed;
+      playerMapRoles[key][role] = (playerMapRoles[key][role] || 0) + 1;
+    }
+
+    // Determine primary role per player-map
+    const primaryRole = {};
+    for (const [key, roles] of Object.entries(playerMapRoles)) {
+      const sorted = Object.entries(roles).sort((a, b) => b[1] - a[1]);
+      primaryRole[key] = sorted[0][0];
+    }
+
+    // Now compute swap impact: primary vs non-primary on each map
+    const swapMap = {};
+    for (const r of enrichedRows) {
+      const match = matchMap.get(r.match_id);
+      if (!match) continue;
+      const pmKey = `${r.canonical}::${match.map}`;
+      const primary = primaryRole[pmKey];
+      const isPrimary = r.role_parsed === primary;
+      const res = rowResult(r, matchMap);
+      const sKey = `${r.canonical}::${match.map}`;
+
+      if (!swapMap[sKey]) {
+        swapMap[sKey] = {
+          player: r.canonical, map: match.map, primaryRole: primary,
+          primaryGames: 0, primaryWins: 0,
+          swapGames: 0, swapWins: 0,
+        };
+      }
+      const s = swapMap[sKey];
+      if (isPrimary) {
+        s.primaryGames++;
+        if (res === 'W') s.primaryWins++;
+      } else {
+        s.swapGames++;
+        if (res === 'W') s.swapWins++;
+      }
+    }
+
+    return Object.values(swapMap)
+      .filter((s) => s.swapGames >= 1 && s.primaryGames >= 2) // need enough data
+      .map((s) => ({
+        ...s,
+        primaryWinPct: s.primaryGames > 0 ? (s.primaryWins / s.primaryGames) * 100 : 0,
+        swapWinPct: s.swapGames > 0 ? (s.swapWins / s.swapGames) * 100 : 0,
+      }))
+      .sort((a, b) => a.player.localeCompare(b.player) || b.primaryGames - a.primaryGames);
+  }, [enrichedRows, matchMap]);
 
   // --- Export ---
   const exportData = [
@@ -381,6 +491,67 @@ export default function RoleAnalysis({ data }) {
           </tbody>
         </table>
       </Section>
+
+      {/* Section 4: Role × Map Breakdown */}
+      <Section title={<>Role \u00D7 Map Breakdown <InfoTip text="Per-map stats for each role. Expand a role to see map-level performance and weapon splits." /></>}>
+        <p className="text-xs mb-3" style={{ color: 'var(--color-text-muted)' }}>
+          How each role performs on different maps. Click a role to expand per-map details.
+        </p>
+        {Object.keys(roleMapStats).length === 0 ? (
+          <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>No per-map role data available.</p>
+        ) : (
+          <RoleMapTable roleMapStats={roleMapStats} roleWeaponStats={roleWeaponStats} />
+        )}
+      </Section>
+
+      {/* Section 5: Role Swap Impact */}
+      {roleSwapStats.length > 0 && (
+        <Section title={<>Role Swap Impact <InfoTip text="Compares win% when a player plays their primary (most common) role on a map vs a different role. Shows the effect of role swaps." /></>}>
+          <p className="text-xs mb-3" style={{ color: 'var(--color-text-muted)' }}>
+            Win% comparison: primary role vs non-primary role per player per map.
+            Requires at least 2 games in primary role and 1 game in swapped role.
+          </p>
+          <table className="w-full text-sm">
+            <thead>
+              <tr>
+                {['Player', 'Map', 'Primary Role', 'Primary Win%', 'Swap Win%', 'Delta'].map((h) => (
+                  <th key={h} className="text-left pb-2 border-b font-medium" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-muted)' }}>
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {roleSwapStats.map((s) => {
+                const delta = s.swapWinPct - s.primaryWinPct;
+                return (
+                  <tr key={`${s.player}::${s.map}`}>
+                    <td className="py-1.5 border-b font-semibold" style={{ borderColor: 'var(--color-border)' }}>{s.player}</td>
+                    <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)' }}>{s.map}</td>
+                    <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)' }}>{s.primaryRole} ({s.primaryGames}g)</td>
+                    <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)', color: getStatColor(s.primaryWinPct, 'winPct') }}>
+                      {s.primaryWinPct.toFixed(0)}%
+                    </td>
+                    <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)', color: getStatColor(s.swapWinPct, 'winPct') }}>
+                      {s.swapWinPct.toFixed(0)}% ({s.swapGames}g)
+                      {s.swapGames < 3 && (
+                        <span className="ml-1 text-[10px] px-1 py-px rounded" style={{ backgroundColor: 'rgba(249, 115, 22, 0.15)', color: 'rgb(249, 115, 22)' }}
+                          title="Low sample">{'\u26A0'}</span>
+                      )}
+                    </td>
+                    <td className="py-1.5 border-b font-semibold" style={{
+                      borderColor: 'var(--color-border)',
+                      color: delta > 10 ? 'var(--color-win)' : delta < -10 ? 'var(--color-loss)' : undefined,
+                    }}>
+                      {delta >= 0 ? '+' : ''}{delta.toFixed(0)}pp
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </Section>
+      )}
     </div>
   );
 }
@@ -423,6 +594,102 @@ function rowResult(row, matchMap) {
   if (!match) return null;
   if (match.winner_side === 'draw') return 'D';
   return row.side === match.winner_side ? 'W' : 'L';
+}
+
+function RoleMapTable({ roleMapStats, roleWeaponStats }) {
+  const [expandedRole, setExpandedRole] = useState(null);
+  const roles = roleWeaponStats.map((r) => r.role);
+
+  return (
+    <table className="w-full text-sm">
+      <thead>
+        <tr>
+          {['Role', 'Maps Played', 'Total G'].map((h) => (
+            <th key={h} className="text-left pb-2 border-b font-medium" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-muted)' }}>
+              {h}
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {roles.map((role) => {
+          const maps = roleMapStats[role] || [];
+          const totalGames = maps.reduce((s, m) => s + m.games, 0);
+          const isExpanded = expandedRole === role;
+          return (
+            <RoleMapRow
+              key={role}
+              role={role}
+              maps={maps}
+              totalGames={totalGames}
+              isExpanded={isExpanded}
+              onToggle={() => setExpandedRole(isExpanded ? null : role)}
+            />
+          );
+        })}
+      </tbody>
+    </table>
+  );
+}
+
+function RoleMapRow({ role, maps, totalGames, isExpanded, onToggle }) {
+  return (
+    <>
+      <tr onClick={onToggle} className="cursor-pointer" style={{ backgroundColor: isExpanded ? 'var(--color-surface-hover)' : undefined }}>
+        <td className="py-1.5 border-b font-semibold" style={{ borderColor: 'var(--color-border)' }}>
+          {role} {isExpanded ? '\u25B2' : '\u25BC'}
+        </td>
+        <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)' }}>
+          {maps.length}
+        </td>
+        <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)' }}>
+          {totalGames}
+        </td>
+      </tr>
+      {isExpanded && (
+        <tr>
+          <td colSpan={3} style={{ backgroundColor: 'var(--color-bg)' }}>
+            <div className="px-4 py-2">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr>
+                    {['Map', 'G', 'Win%', 'DPM', 'Net Dmg', 'RL%', 'RG%', 'SG%', 'LG%', 'PG%'].map((h) => (
+                      <th key={h} className="text-left pb-1 font-medium" style={{ color: 'var(--color-text-muted)' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {maps.map((m) => (
+                    <tr key={m.map}>
+                      <td className="py-0.5">
+                        {m.map}
+                        {m.games < 3 && (
+                          <span className="ml-1 text-[10px] px-1 py-px rounded"
+                            style={{ backgroundColor: 'rgba(249, 115, 22, 0.15)', color: 'rgb(249, 115, 22)' }}
+                            title="Low sample">{'\u26A0'}</span>
+                        )}
+                      </td>
+                      <td className="py-0.5">{m.games}</td>
+                      <td className="py-0.5" style={{ color: getStatColor(m.winPct, 'winPct') }}>{m.winPct.toFixed(0)}%</td>
+                      <td className="py-0.5" style={{ color: getStatColor(m.avgDpm, 'dpm') }}>{m.avgDpm.toFixed(0)}</td>
+                      <td className="py-0.5" style={{ color: getStatColor(m.avgNetDmg, 'netDmg') }}>
+                        {m.avgNetDmg >= 0 ? '+' : ''}{m.avgNetDmg.toFixed(0)}
+                      </td>
+                      <td className="py-0.5">{m.avgRl.toFixed(0)}</td>
+                      <td className="py-0.5">{m.avgRg.toFixed(0)}</td>
+                      <td className="py-0.5">{m.avgSg.toFixed(0)}</td>
+                      <td className="py-0.5">{m.avgLg.toFixed(0)}</td>
+                      <td className="py-0.5">{m.avgPg.toFixed(0)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </td>
+        </tr>
+      )}
+    </>
+  );
 }
 
 function RotationRow({ label, data }) {
