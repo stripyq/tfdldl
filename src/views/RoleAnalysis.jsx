@@ -7,6 +7,7 @@
 
 import { useMemo } from 'react';
 import ExportButton from '../components/ExportButton.jsx';
+import { getStatColor } from '../utils/getStatColor.js';
 
 const FOCUS = 'wAnnaBees';
 
@@ -256,19 +257,19 @@ export default function RoleAnalysis({ data }) {
                 <WeaponCell value={r.avgSg} max={weaponMaxes.avgSg} />
                 <WeaponCell value={r.avgLg} max={weaponMaxes.avgLg} />
                 <WeaponCell value={r.avgPg} max={weaponMaxes.avgPg} />
-                <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)' }}>
+                <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)', color: getStatColor(r.avgDpm, 'dpm') }}>
                   {r.avgDpm.toFixed(0)}
                 </td>
                 <td
                   className="py-1.5 border-b"
                   style={{
                     borderColor: 'var(--color-border)',
-                    color: r.avgNetDmg > 0 ? 'var(--color-win)' : r.avgNetDmg < 0 ? 'var(--color-loss)' : undefined,
+                    color: getStatColor(r.avgNetDmg, 'netDmg'),
                   }}
                 >
                   {r.avgNetDmg >= 0 ? '+' : ''}{r.avgNetDmg.toFixed(0)}
                 </td>
-                <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)' }}>
+                <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)', color: getStatColor(r.avgKd, 'kd') }}>
                   {r.avgKd.toFixed(2)}
                 </td>
               </tr>
@@ -312,7 +313,7 @@ export default function RoleAnalysis({ data }) {
                   className="py-1.5 border-b font-semibold"
                   style={{
                     borderColor: 'var(--color-border)',
-                    color: c.winFlag ? 'var(--color-loss)' : c.winPct > 60 ? 'var(--color-win)' : c.winPct < 40 ? 'var(--color-loss)' : undefined,
+                    color: c.winFlag ? 'var(--color-loss)' : getStatColor(c.winPct, 'winPct'),
                   }}
                 >
                   {c.winPct.toFixed(0)}%
@@ -340,12 +341,12 @@ export default function RoleAnalysis({ data }) {
                   className="py-1.5 border-b"
                   style={{
                     borderColor: 'var(--color-border)',
-                    color: c.avgNetDmg > 0 ? 'var(--color-win)' : c.avgNetDmg < 0 ? 'var(--color-loss)' : undefined,
+                    color: getStatColor(c.avgNetDmg, 'netDmg'),
                   }}
                 >
                   {c.avgNetDmg >= 0 ? '+' : ''}{c.avgNetDmg.toFixed(0)}
                 </td>
-                <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)' }}>
+                <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)', color: getStatColor(c.avgKd, 'kd') }}>
                   {c.avgKd.toFixed(2)}
                 </td>
               </tr>
@@ -440,7 +441,7 @@ function RotationRow({ label, data }) {
         className="py-1.5 border-b font-semibold"
         style={{
           borderColor: 'var(--color-border)',
-          color: data.winPct > 60 ? 'var(--color-win)' : data.winPct < 40 ? 'var(--color-loss)' : undefined,
+          color: getStatColor(data.winPct, 'winPct'),
         }}
       >
         {data.games > 0 ? `${data.winPct.toFixed(0)}%` : '\u2014'}
@@ -449,7 +450,7 @@ function RotationRow({ label, data }) {
         className="py-1.5 border-b"
         style={{
           borderColor: 'var(--color-border)',
-          color: data.avgCapDiff > 0 ? 'var(--color-win)' : data.avgCapDiff < 0 ? 'var(--color-loss)' : undefined,
+          color: getStatColor(data.avgCapDiff, 'capDiff'),
         }}
       >
         {data.games > 0 ? `${data.avgCapDiff >= 0 ? '+' : ''}${data.avgCapDiff.toFixed(1)}` : '\u2014'}

@@ -74,6 +74,8 @@ export default function App() {
     const lines = notes.map((n) => {
       const parts = [`\uD83D\uDCDD Match Notes`];
       parts.push(`${n.date_local || '?'} | ${n.map || '?'}`);
+      if (n.formation) parts.push(`Formation: ${n.formation}`);
+      if (n.rotation_style) parts.push(`Rotation: ${n.rotation_style}`);
       if (n.comment) parts.push(`Comment: ${n.comment}`);
       if (n.enemy_notes) parts.push(`Enemy: ${n.enemy_notes}`);
       if (n.our_adjustments) parts.push(`Adjustments: ${n.our_adjustments}`);
@@ -293,8 +295,8 @@ export default function App() {
 
         {/* Main content */}
         <main className="flex-1 overflow-y-auto">
-          {activeView === 'overview' && <Overview data={data} onNavigateMatchLog={navigateToMatchLog} />}
-          {activeView === 'maps' && <MapStrength data={data} onNavigateMatchLog={navigateToMatchLog} />}
+          {activeView === 'overview' && <Overview data={data} onNavigateMatchLog={navigateToMatchLog} matchNotes={mergedNotes} />}
+          {activeView === 'maps' && <MapStrength data={data} onNavigateMatchLog={navigateToMatchLog} matchNotes={mergedNotes} />}
           {activeView === 'opponents' && <OpponentMatrix data={data} onNavigateMatchLog={navigateToMatchLog} />}
           {activeView === 'scouting' && <OpponentScouting data={data} />}
           {activeView === 'lineups' && <Lineups data={data} onNavigateMatchLog={navigateToMatchLog} />}

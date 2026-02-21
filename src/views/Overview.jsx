@@ -4,11 +4,12 @@
  * Uses scopedLoose predicate by default.
  */
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import ExportButton from '../components/ExportButton.jsx';
 import InfoTip from '../components/InfoTip.jsx';
+import { getStatColor } from '../utils/getStatColor.js';
 
-export default function Overview({ data, onNavigateMatchLog }) {
+export default function Overview({ data, onNavigateMatchLog, matchNotes }) {
   const { teamMatchRows } = data;
 
   // Focus team rows with loose qualification
@@ -54,15 +55,6 @@ export default function Overview({ data, onNavigateMatchLog }) {
     ? closeWins.reduce((s, r) => s + r.damage_hhi, 0) / closeWins.length : 0;
   const avgHhiCloseL = closeLosses.length > 0
     ? closeLosses.reduce((s, r) => s + r.damage_hhi, 0) / closeLosses.length : 0;
-
-  // Most common lineups in close losses
-  const closeLossLineups = {};
-  for (const r of closeLosses) {
-    closeLossLineups[r.lineup_key] = (closeLossLineups[r.lineup_key] || 0) + 1;
-  }
-  const topCloseLossLineups = Object.entries(closeLossLineups)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 2);
 
   // Close games per map
   const closeByMap = {};
@@ -135,6 +127,44 @@ export default function Overview({ data, onNavigateMatchLog }) {
   };
   const h1 = halfStats(firstHalf);
   const h2 = halfStats(secondHalf);
+
+  // --- Formation breakdown from match notes ---
+  const formationStats = useMemo(() => {
+    if (!matchNotes || matchNotes.size === 0) return [];
+    const formations = {};
+    for (const r of focusRows) {
+      const note = matchNotes.get(r.match_id);
+      if (!note?.formation) continue;
+      const f = note.formation;
+      if (!formations[f]) formations[f] = { formation: f, games: 0, wins: 0, losses: 0 };
+      formations[f].games++;
+      if (r.result === 'W') formations[f].wins++;
+      if (r.result === 'L') formations[f].losses++;
+    }
+    return Object.values(formations)
+      .map((f) => ({ ...f, winPct: f.games > 0 ? (f.wins / f.games) * 100 : 0 }))
+      .sort((a, b) => b.games - a.games);
+  }, [focusRows, matchNotes]);
+
+  const rotationStats = useMemo(() => {
+    if (!matchNotes || matchNotes.size === 0) return [];
+    const rotations = {};
+    for (const r of focusRows) {
+      const note = matchNotes.get(r.match_id);
+      if (!note?.rotation_style) continue;
+      const rs = note.rotation_style;
+      if (!rotations[rs]) rotations[rs] = { style: rs, games: 0, wins: 0, losses: 0 };
+      rotations[rs].games++;
+      if (r.result === 'W') rotations[rs].wins++;
+      if (r.result === 'L') rotations[rs].losses++;
+    }
+    return Object.values(rotations)
+      .map((s) => ({ ...s, winPct: s.games > 0 ? (s.wins / s.games) * 100 : 0 }))
+      .sort((a, b) => b.games - a.games);
+  }, [focusRows, matchNotes]);
+
+  const annotatedCount = formationStats.reduce((s, f) => s + f.games, 0)
+    + rotationStats.reduce((s, r) => s + r.games, 0);
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
@@ -210,7 +240,6 @@ export default function Overview({ data, onNavigateMatchLog }) {
           avgNetDmgCloseL={avgNetDmgCloseL}
           avgHhiCloseW={avgHhiCloseW}
           avgHhiCloseL={avgHhiCloseL}
-          topCloseLossLineups={topCloseLossLineups}
           closeMapRows={closeMapRows}
           closeOppRows={closeOppRows}
           onNavigateMatchLog={onNavigateMatchLog}
@@ -244,6 +273,57 @@ export default function Overview({ data, onNavigateMatchLog }) {
       >
         <OpponentBreakdown rows={focusRows} onNavigateMatchLog={onNavigateMatchLog} />
       </CollapsibleCard>
+
+      {/* Formation breakdown (from annotated matches) */}
+      {(formationStats.length > 0 || rotationStats.length > 0) && (
+        <CollapsibleCard
+          title={<>Formation Analysis <InfoTip text="Based on match notes with formation/rotation annotations. Small sample — patterns only." /></>}
+          summary={`${annotatedCount} annotated`}
+        >
+          {formationStats.length > 0 && (
+            <div className="mb-4">
+              <p className="text-xs uppercase tracking-wide mb-2" style={{ color: 'var(--color-text-muted)' }}>
+                By Formation
+              </p>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {formationStats.map((f) => (
+                  <div key={f.formation} className="px-3 py-2 rounded" style={{ backgroundColor: 'var(--color-bg)' }}>
+                    <p className="text-xs font-medium" style={{ color: 'var(--color-accent)' }}>{f.formation}</p>
+                    <p className="text-sm font-bold">
+                      {f.wins}W{'\u2013'}{f.losses}L
+                      <span className="ml-1" style={{ color: getStatColor(f.winPct, 'winPct') }}>
+                        {f.winPct.toFixed(0)}%
+                      </span>
+                    </p>
+                    <p className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>{f.games} games</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {rotationStats.length > 0 && (
+            <div>
+              <p className="text-xs uppercase tracking-wide mb-2" style={{ color: 'var(--color-text-muted)' }}>
+                By Rotation Style
+              </p>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                {rotationStats.map((r) => (
+                  <div key={r.style} className="px-3 py-2 rounded" style={{ backgroundColor: 'var(--color-bg)' }}>
+                    <p className="text-xs font-medium" style={{ color: 'var(--color-accent)' }}>{r.style}</p>
+                    <p className="text-sm font-bold">
+                      {r.wins}W{'\u2013'}{r.losses}L
+                      <span className="ml-1" style={{ color: getStatColor(r.winPct, 'winPct') }}>
+                        {r.winPct.toFixed(0)}%
+                      </span>
+                    </p>
+                    <p className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>{r.games} games</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </CollapsibleCard>
+      )}
     </div>
   );
 }
@@ -252,7 +332,7 @@ function CloseGamesAnalysis({
   closeWinCount, closeLossCount,
   avgNetDmgCloseW, avgNetDmgCloseL,
   avgHhiCloseW, avgHhiCloseL,
-  topCloseLossLineups, closeMapRows, closeOppRows,
+  closeMapRows, closeOppRows,
   onNavigateMatchLog,
 }) {
   if (closeWinCount + closeLossCount === 0) return null;
@@ -282,21 +362,6 @@ function CloseGamesAnalysis({
           <p className="text-lg font-bold">{avgHhiCloseL.toFixed(3)}</p>
         </div>
       </div>
-
-      {/* Lineup(s) in close losses */}
-      {topCloseLossLineups.length > 0 && (
-        <div className="mb-4">
-          <p className="text-xs uppercase tracking-wide mb-1" style={{ color: 'var(--color-text-muted)' }}>
-            Most Common Lineup in Close Losses
-          </p>
-          {topCloseLossLineups.map(([key, count]) => (
-            <p key={key} className="text-sm">
-              <span style={{ color: 'var(--color-loss)' }}>{key.split('+').join(' \u00B7 ')}</span>
-              <span className="text-xs ml-2" style={{ color: 'var(--color-text-muted)' }}>({count})</span>
-            </p>
-          ))}
-        </div>
-      )}
 
       {/* Per-map close game W-L */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -583,7 +648,7 @@ function OpponentBreakdown({ rows, onNavigateMatchLog }) {
                 className="py-1.5 border-b font-medium"
                 style={{
                   borderColor: 'var(--color-border)',
-                  color: o.winPct > 60 ? 'var(--color-win)' : o.winPct < 40 ? 'var(--color-loss)' : 'var(--color-text)',
+                  color: getStatColor(o.winPct, 'winPct'),
                 }}
               >
                 {o.winPct.toFixed(0)}%

@@ -5,6 +5,7 @@
 
 import { useState, useMemo } from 'react';
 import ExportButton from '../components/ExportButton.jsx';
+import { getStatColor } from '../utils/getStatColor.js';
 
 const MIN_H2H = 2;
 
@@ -357,11 +358,7 @@ export default function DraftHelper({ data }) {
                       className="py-1.5 border-b font-medium"
                       style={{
                         borderColor: 'var(--color-border)',
-                        color: r.global.winPct >= 60
-                          ? 'var(--color-win)'
-                          : r.global.winPct < 40
-                            ? 'var(--color-loss)'
-                            : 'var(--color-text)',
+                        color: getStatColor(r.global.winPct, 'winPct'),
                       }}
                     >
                       {r.global.winPct.toFixed(0)}%
@@ -376,11 +373,7 @@ export default function DraftHelper({ data }) {
                           style={{
                             borderColor: 'var(--color-border)',
                             color: r.h2hWinPct !== null
-                              ? r.h2hWinPct >= 60
-                                ? 'var(--color-win)'
-                                : r.h2hWinPct < 40
-                                  ? 'var(--color-loss)'
-                                  : 'var(--color-text)'
+                              ? getStatColor(r.h2hWinPct, 'winPct') || 'var(--color-text)'
                               : 'var(--color-text-muted)',
                           }}
                         >
@@ -398,11 +391,7 @@ export default function DraftHelper({ data }) {
                           style={{
                             borderColor: 'var(--color-border)',
                             color: r.oppGlobal
-                              ? r.oppGlobal.winPct >= 60
-                                ? 'var(--color-loss)'
-                                : r.oppGlobal.winPct < 40
-                                  ? 'var(--color-win)'
-                                  : 'var(--color-text)'
+                              ? getStatColor(r.oppGlobal.winPct, 'winPct', true) || 'var(--color-text)'
                               : 'var(--color-text-muted)',
                           }}
                         >

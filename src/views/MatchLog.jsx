@@ -7,8 +7,11 @@
 import { useState, useMemo } from 'react';
 import ExportButton from '../components/ExportButton.jsx';
 import InfoTip from '../components/InfoTip.jsx';
+import PlayerNames from '../components/PlayerNames.jsx';
 
 const FOCUS = 'wAnnaBees';
+const FORMATION_OPTIONS = ['', '1def-3off', '2def-2off', '1def-2off-1mid', 'custom'];
+const ROTATION_OPTIONS = ['', 'Rigid', 'Dynamic', 'Mixed'];
 
 export default function MatchLog({ data, initialFilters, matchNotes, onSaveNote }) {
   const { matches, teamMatchRows, playerRows } = data;
@@ -27,6 +30,15 @@ export default function MatchLog({ data, initialFilters, matchNotes, onSaveNote 
       m.get(p.match_id).push(p);
     }
     return m;
+  }, [playerRows]);
+
+  // Build set of focus team members for sub badges
+  const teamMembers = useMemo(() => {
+    const set = new Set();
+    for (const p of playerRows) {
+      if (p.team_membership === FOCUS) set.add(p.canonical);
+    }
+    return set;
   }, [playerRows]);
 
   // Build wB match rows with enriched data
@@ -308,6 +320,7 @@ export default function MatchLog({ data, initialFilters, matchNotes, onSaveNote 
                     onSaveNote={onSaveNote}
                     noteFormId={noteFormId}
                     setNoteFormId={setNoteFormId}
+                    teamMembers={teamMembers}
                   />
                 );
               })}
@@ -319,7 +332,7 @@ export default function MatchLog({ data, initialFilters, matchNotes, onSaveNote 
   );
 }
 
-function MatchRow({ row, isExpanded, onToggle, playersByMatch, matchMap, colCount, matchNotes, onSaveNote, noteFormId, setNoteFormId }) {
+function MatchRow({ row, isExpanded, onToggle, playersByMatch, matchMap, colCount, matchNotes, onSaveNote, noteFormId, setNoteFormId, teamMembers }) {
   const r = row;
   const resultColor = r.result === 'W' ? 'var(--color-win)' : r.result === 'L' ? 'var(--color-loss)' : 'var(--color-draw)';
   const hasNote = matchNotes?.has(r.match_id);
@@ -370,7 +383,7 @@ function MatchRow({ row, isExpanded, onToggle, playersByMatch, matchMap, colCoun
           {formatClass(r.opp_class)}
         </td>
         <td className="px-3 py-1.5 border-b text-xs" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-muted)' }}>
-          {r.player_names.join(', ')}
+          <PlayerNames names={r.player_names} teamMembers={teamMembers} separator=", " />
         </td>
         <td className="px-3 py-1.5 border-b" style={{ borderColor: 'var(--color-border)' }}>
           <a
@@ -442,6 +455,22 @@ function NoteDisplay({ note }) {
         border: '1px solid var(--color-border)',
       }}
     >
+      {(note.formation || note.rotation_style) && (
+        <div className="mb-1 flex gap-3">
+          {note.formation && (
+            <span>
+              <span style={{ color: 'var(--color-text-muted)' }}>Formation: </span>
+              <span style={{ color: 'var(--color-accent)' }}>{note.formation}</span>
+            </span>
+          )}
+          {note.rotation_style && (
+            <span>
+              <span style={{ color: 'var(--color-text-muted)' }}>Rotation: </span>
+              <span style={{ color: 'var(--color-accent)' }}>{note.rotation_style}</span>
+            </span>
+          )}
+        </div>
+      )}
       {note.comment && (
         <div className="mb-1">
           <span style={{ color: 'var(--color-text-muted)' }}>Comment: </span>
@@ -481,6 +510,8 @@ function NoteForm({ matchId, dateLocal, map, existingNote, onSave, onCancel }) {
   const [comment, setComment] = useState(existingNote?.comment || '');
   const [enemyNotes, setEnemyNotes] = useState(existingNote?.enemy_notes || '');
   const [ourAdj, setOurAdj] = useState(existingNote?.our_adjustments || '');
+  const [formation, setFormation] = useState(existingNote?.formation || '');
+  const [rotationStyle, setRotationStyle] = useState(existingNote?.rotation_style || '');
   const [tagsStr, setTagsStr] = useState(
     existingNote?.tags ? existingNote.tags.join(', ') : ''
   );
@@ -499,6 +530,8 @@ function NoteForm({ matchId, dateLocal, map, existingNote, onSave, onCancel }) {
       comment,
       enemy_notes: enemyNotes,
       our_adjustments: ourAdj,
+      formation: formation || undefined,
+      rotation_style: rotationStyle || undefined,
       tags,
     });
   }
@@ -522,6 +555,38 @@ function NoteForm({ matchId, dateLocal, map, existingNote, onSave, onCancel }) {
       <p className="text-xs font-medium mb-2" style={{ color: 'var(--color-accent)' }}>
         Match Note &mdash; {dateLocal} {map}
       </p>
+      <div className="grid grid-cols-2 gap-2 mb-2">
+        <div>
+          <label className="text-[10px] block mb-0.5" style={{ color: 'var(--color-text-muted)' }}>
+            Formation
+          </label>
+          <select
+            value={formation}
+            onChange={(e) => setFormation(e.target.value)}
+            className="w-full rounded px-2 py-1 text-xs cursor-pointer"
+            style={inputStyle}
+          >
+            {FORMATION_OPTIONS.map((f) => (
+              <option key={f} value={f}>{f || '— none —'}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="text-[10px] block mb-0.5" style={{ color: 'var(--color-text-muted)' }}>
+            Rotation Style
+          </label>
+          <select
+            value={rotationStyle}
+            onChange={(e) => setRotationStyle(e.target.value)}
+            className="w-full rounded px-2 py-1 text-xs cursor-pointer"
+            style={inputStyle}
+          >
+            {ROTATION_OPTIONS.map((r) => (
+              <option key={r} value={r}>{r || '— none —'}</option>
+            ))}
+          </select>
+        </div>
+      </div>
       <div className="grid grid-cols-1 gap-2 mb-2">
         <div>
           <label className="text-[10px] block mb-0.5" style={{ color: 'var(--color-text-muted)' }}>
