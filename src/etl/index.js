@@ -11,6 +11,7 @@ import { datasetFlags } from './datasetFlags.js';
 import { computeStats, buildPairStats, buildLineupStats } from './computeStats.js';
 import { linkUnlinkedRoles, parseRoles, mergeRoles } from './parseRoles.js';
 import { buildNickNormalizer } from './normalizeNick.js';
+import { checkRegistryIntegrity } from './registryIntegrity.js';
 
 /**
  * Process raw match data through the full ETL pipeline.
@@ -69,6 +70,9 @@ export function processData(rawJson, playerRegistry, teamConfig, manualRoles) {
   const { pairStats, pairLookupMisses } = buildPairStats(scopedTeamMatchRows, teamConfig.focus_team, scopedPlayerRows);
   const lineupStats = buildLineupStats(scopedTeamMatchRows, teamConfig.focus_team);
 
+  // Step 8: Registry integrity checks
+  const registryIntegrity = checkRegistryIntegrity(playerRegistry, teamConfig, scopedPlayerRows);
+
   // Top unresolved nick counts (scoped)
   const unresolvedNickCounts = {};
   for (const p of scopedPlayerRows) {
@@ -111,6 +115,7 @@ export function processData(rawJson, playerRegistry, teamConfig, manualRoles) {
     durationParseErrors,
     pairLookupMisses,
     aliasCollisions,
+    registryIntegrity,
     dataHash,
   };
 }

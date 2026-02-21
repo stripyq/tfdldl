@@ -25,6 +25,7 @@ export default function DataHealth({ data }) {
     durationParseErrors,
     pairLookupMisses,
     aliasCollisions,
+    registryIntegrity,
     pairStats,
     lineupStats,
     scopeDate,
@@ -194,6 +195,71 @@ export default function DataHealth({ data }) {
           </>
         )}
       </Collapsible>
+
+      {/* Registry Integrity */}
+      {registryIntegrity && (
+        <Collapsible title="Registry Integrity">
+          {registryIntegrity.aliasCollisions.length === 0 &&
+           registryIntegrity.steamIdCollisions.length === 0 &&
+           registryIntegrity.canonicalSteamIdMismatches.length === 0 ? (
+            <GoodMsg>No registry integrity issues found</GoodMsg>
+          ) : (
+            <>
+              {registryIntegrity.aliasCollisions.length > 0 && (
+                <div className="mb-4">
+                  <p className="text-sm font-medium mb-1" style={{ color: 'var(--color-loss)' }}>
+                    Alias Collisions ({registryIntegrity.aliasCollisions.length})
+                  </p>
+                  <p className="text-xs mb-2" style={{ color: 'var(--color-text-muted)' }}>
+                    Two different players share the same normalized alias. One will steal resolution from the other.
+                  </p>
+                  <ul className="text-sm space-y-1">
+                    {registryIntegrity.aliasCollisions.map((c, i) => (
+                      <li key={i} style={{ color: 'var(--color-loss)' }}>
+                        Alias &quot;{c.normalized}&quot; claimed by: {c.players.join(', ')}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {registryIntegrity.steamIdCollisions.length > 0 && (
+                <div className="mb-4">
+                  <p className="text-sm font-medium mb-1" style={{ color: 'var(--color-loss)' }}>
+                    Steam ID Collisions ({registryIntegrity.steamIdCollisions.length})
+                  </p>
+                  <p className="text-xs mb-2" style={{ color: 'var(--color-text-muted)' }}>
+                    Two different registry entries share the same steam_id.
+                  </p>
+                  <ul className="text-sm space-y-1">
+                    {registryIntegrity.steamIdCollisions.map((c, i) => (
+                      <li key={i} style={{ color: 'var(--color-loss)' }}>
+                        Steam ID {c.steam_id} shared by: {c.players.join(', ')}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {registryIntegrity.canonicalSteamIdMismatches.length > 0 && (
+                <div className="mb-4">
+                  <p className="text-sm font-medium mb-1" style={{ color: 'var(--color-loss)' }}>
+                    Canonical/Steam ID Mismatches ({registryIntegrity.canonicalSteamIdMismatches.length})
+                  </p>
+                  <p className="text-xs mb-2" style={{ color: 'var(--color-text-muted)' }}>
+                    A steam_id resolved to different canonical names across matches.
+                  </p>
+                  <ul className="text-sm space-y-1">
+                    {registryIntegrity.canonicalSteamIdMismatches.map((c, i) => (
+                      <li key={i} style={{ color: 'var(--color-loss)' }}>
+                        Steam ID {c.steam_id} appears as: {c.canonicals.join(', ')}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </>
+          )}
+        </Collapsible>
+      )}
 
       {/* Role Annotations */}
       <Collapsible title="Role Annotations">
