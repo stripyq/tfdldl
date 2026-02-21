@@ -7,7 +7,6 @@ import Lineups from './views/Lineups.jsx';
 import PlayerCards from './views/PlayerCards.jsx';
 import MatchLog from './views/MatchLog.jsx';
 import DataHealth from './views/DataHealth.jsx';
-import DraftHelper from './views/DraftHelper.jsx';
 import OpponentScouting from './views/OpponentScouting.jsx';
 import RoleAnalysis from './views/RoleAnalysis.jsx';
 import OpponentPlayers from './views/OpponentPlayers.jsx';
@@ -21,7 +20,6 @@ const VIEWS = [
   { id: 'players', label: 'Player Cards' },
   { id: 'roles', label: 'Roles' },
   { id: 'opponents', label: 'Opponents' },
-  { id: 'draft', label: 'Draft Helper' },
   { id: 'scouting', label: 'Scouting' },
   { id: 'opp-players', label: 'Opp. Players' },
   { id: 'close-games', label: 'Close Games' },
@@ -308,7 +306,6 @@ export default function App() {
           {activeView === 'lineups' && <Lineups data={data} onNavigateMatchLog={navigateToMatchLog} />}
           {activeView === 'players' && <PlayerCards data={data} onNavigateMatchLog={navigateToMatchLog} matchNotes={mergedNotes} />}
           {activeView === 'roles' && <RoleAnalysis data={data} />}
-          {activeView === 'draft' && <DraftHelper data={data} />}
           {activeView === 'matches' && (
             <MatchLog
               data={data}
