@@ -49,3 +49,44 @@ body {
   vertical-align: super;
   cursor: help;
 }
+
+/* InfoTip hover tooltip */
+.infotip-wrap {
+  position: relative;
+  display: inline-block;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+.infotip-icon {
+  font-size: 0.7rem;
+  cursor: help;
+  opacity: 0.5;
+  transition: opacity 0.15s;
+}
+.infotip-wrap:hover .infotip-icon {
+  opacity: 1;
+}
+.infotip-bubble {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 0.7rem;
+  font-weight: 400;
+  line-height: 1.4;
+  white-space: normal;
+  width: max-content;
+  max-width: 260px;
+  z-index: 50;
+  pointer-events: none;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+.infotip-wrap:hover .infotip-bubble {
+  display: block;
+}

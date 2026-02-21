@@ -4,7 +4,9 @@
  * Uses scopedLoose predicate by default.
  */
 
+import { useState } from 'react';
 import ExportButton from '../components/ExportButton.jsx';
+import InfoTip from '../components/InfoTip.jsx';
 
 export default function Overview({ data, onNavigateMatchLog }) {
   const { teamMatchRows } = data;
@@ -168,19 +170,19 @@ export default function Overview({ data, onNavigateMatchLog }) {
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Metric label="Avg DPM" value={avgDpm.toFixed(0)} />
+          <Metric label={<>Avg DPM <InfoTip text="Damage Per Minute. Measures combat output normalized by game length." /></>} value={avgDpm.toFixed(0)} />
           <Metric
             label="Avg Cap Diff"
             value={avgCapDiff >= 0 ? `+${avgCapDiff.toFixed(1)}` : avgCapDiff.toFixed(1)}
             color={avgCapDiff >= 0 ? 'var(--color-win)' : 'var(--color-loss)'}
           />
           <Metric
-            label="Close Games (±1)"
+            label={<>Close Games (±1) <InfoTip text="Match decided by ±1 cap difference." /></>}
             value={`${closeWins.length}W\u2013${closeLosses.length}L`}
             subtitle={`${closeGames.length} total`}
           />
           <Metric
-            label="Dmg Concentration"
+            label={<>Dmg Concentration <InfoTip text="Damage concentration index. 0.25 = perfectly equal damage spread. Higher = one player doing most of the damage." /></>}
             value={avgHhi.toFixed(3)}
             subtitle="HHI (0.25 = equal)"
           />
@@ -188,36 +190,60 @@ export default function Overview({ data, onNavigateMatchLog }) {
       </div>
 
       {/* Close Games Deep-Dive */}
-      <CloseGamesAnalysis
-        closeWinCount={closeWins.length}
-        closeLossCount={closeLosses.length}
-        avgNetDmgCloseW={avgNetDmgCloseW}
-        avgNetDmgCloseL={avgNetDmgCloseL}
-        avgHhiCloseW={avgHhiCloseW}
-        avgHhiCloseL={avgHhiCloseL}
-        topCloseLossLineups={topCloseLossLineups}
-        closeMapRows={closeMapRows}
-        closeOppRows={closeOppRows}
-        onNavigateMatchLog={onNavigateMatchLog}
-      />
+      <CollapsibleCard
+        title={<>Close Games Deep-Dive (±1 cap) <InfoTip text="Match decided by ±1 cap difference." /></>}
+        right={
+          <span
+            className="stat-link text-xs"
+            style={{ color: 'var(--color-accent)' }}
+            onClick={(e) => { e.stopPropagation(); onNavigateMatchLog?.({ result: 'L', close: true }); }}
+          >
+            Review close losses &rarr;
+          </span>
+        }
+        summary={`${closeWins.length}W\u2013${closeLosses.length}L`}
+      >
+        <CloseGamesAnalysis
+          closeWinCount={closeWins.length}
+          closeLossCount={closeLosses.length}
+          avgNetDmgCloseW={avgNetDmgCloseW}
+          avgNetDmgCloseL={avgNetDmgCloseL}
+          avgHhiCloseW={avgHhiCloseW}
+          avgHhiCloseL={avgHhiCloseL}
+          topCloseLossLineups={topCloseLossLineups}
+          closeMapRows={closeMapRows}
+          closeOppRows={closeOppRows}
+          onNavigateMatchLog={onNavigateMatchLog}
+        />
+      </CollapsibleCard>
 
       {/* Tempo Identity */}
-      <TempoIdentity
-        avgDuration={avgDuration}
-        avgDurWin={avgDurWin}
-        avgDurLoss={avgDurLoss}
-        blowoutWinRows={blowoutWinRows}
-        blowoutLossRows={blowoutLossRows}
-        blowoutWinMaps={blowoutWinMaps}
-        blowoutLossMaps={blowoutLossMaps}
-        scoreDistRows={scoreDistRows}
-        h1={h1}
-        h2={h2}
-        midDate={midDate}
-      />
+      <CollapsibleCard
+        title="Tempo Identity"
+        summary={`${avgDuration.toFixed(0)}min avg \u00B7 ${blowoutWinRows.length}W\u2013${blowoutLossRows.length}L blowouts`}
+      >
+        <TempoIdentity
+          avgDuration={avgDuration}
+          avgDurWin={avgDurWin}
+          avgDurLoss={avgDurLoss}
+          blowoutWinRows={blowoutWinRows}
+          blowoutLossRows={blowoutLossRows}
+          blowoutWinMaps={blowoutWinMaps}
+          blowoutLossMaps={blowoutLossMaps}
+          scoreDistRows={scoreDistRows}
+          h1={h1}
+          h2={h2}
+          midDate={midDate}
+        />
+      </CollapsibleCard>
 
       {/* Quick opponent breakdown */}
-      <OpponentBreakdown rows={focusRows} onNavigateMatchLog={onNavigateMatchLog} />
+      <CollapsibleCard
+        title="Record by Opponent"
+        summary={`${new Set(focusRows.map((r) => r.opponent_team).filter(Boolean)).size} opponents`}
+      >
+        <OpponentBreakdown rows={focusRows} onNavigateMatchLog={onNavigateMatchLog} />
+      </CollapsibleCard>
     </div>
   );
 }
@@ -232,26 +258,7 @@ function CloseGamesAnalysis({
   if (closeWinCount + closeLossCount === 0) return null;
 
   return (
-    <div
-      className="rounded-lg p-4 mb-6"
-      style={{ backgroundColor: 'var(--color-surface)' }}
-    >
-      <div className="flex items-center justify-between mb-3">
-        <p
-          className="text-xs uppercase tracking-wide"
-          style={{ color: 'var(--color-text-muted)' }}
-        >
-          Close Games Deep-Dive (±1 cap)
-        </p>
-        <span
-          className="stat-link text-xs"
-          style={{ color: 'var(--color-accent)' }}
-          onClick={() => onNavigateMatchLog?.({ result: 'L', close: true })}
-        >
-          Review close losses &rarr;
-        </span>
-      </div>
-
+    <>
       {/* Comparison metrics: close wins vs close losses */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
         <div>
@@ -340,7 +347,7 @@ function CloseGamesAnalysis({
           </div>
         )}
       </div>
-    </div>
+    </>
   );
 }
 
@@ -354,17 +361,7 @@ function TempoIdentity({
   const topBlowoutLossMaps = Object.entries(blowoutLossMaps).sort((a, b) => b[1] - a[1]).slice(0, 3);
 
   return (
-    <div
-      className="rounded-lg p-4 mb-6"
-      style={{ backgroundColor: 'var(--color-surface)' }}
-    >
-      <p
-        className="text-xs uppercase tracking-wide mb-3"
-        style={{ color: 'var(--color-text-muted)' }}
-      >
-        Tempo Identity
-      </p>
-
+    <>
       {/* Duration + blowouts */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
         <div>
@@ -458,6 +455,40 @@ function TempoIdentity({
           </div>
         </div>
       )}
+    </>
+  );
+}
+
+function CollapsibleCard({ title, summary, right, children }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div
+      className="rounded-lg mb-6 overflow-hidden"
+      style={{ backgroundColor: 'var(--color-surface)' }}
+    >
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between px-4 py-3 cursor-pointer text-left"
+        style={{ color: 'var(--color-text)' }}
+      >
+        <div className="flex items-center gap-3">
+          <span className="text-xs uppercase tracking-wide font-semibold" style={{ color: 'var(--color-text-muted)' }}>
+            {title}
+          </span>
+          {summary && (
+            <span className="text-xs font-medium" style={{ color: 'var(--color-text-muted)' }}>
+              {summary}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-3">
+          {right}
+          <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+            {open ? '\u25B2' : '\u25BC'}
+          </span>
+        </div>
+      </button>
+      {open && <div className="px-4 pb-4">{children}</div>}
     </div>
   );
 }
@@ -502,17 +533,7 @@ function OpponentBreakdown({ rows, onNavigateMatchLog }) {
     .sort((a, b) => b.games - a.games);
 
   return (
-    <div
-      className="rounded-lg p-4"
-      style={{ backgroundColor: 'var(--color-surface)' }}
-    >
-      <p
-        className="text-xs uppercase tracking-wide mb-3"
-        style={{ color: 'var(--color-text-muted)' }}
-      >
-        Record by Opponent
-      </p>
-      <table className="w-full text-sm">
+    <table className="w-full text-sm">
         <thead>
           <tr>
             {['Opponent', 'G', 'W', 'L', 'Win%'].map((h) => (
@@ -572,6 +593,5 @@ function OpponentBreakdown({ rows, onNavigateMatchLog }) {
           ))}
         </tbody>
       </table>
-    </div>
   );
 }

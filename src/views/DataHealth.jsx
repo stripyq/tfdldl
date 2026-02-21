@@ -2,6 +2,9 @@
  * DataHealth view — sanity check dashboard showing pipeline diagnostics.
  */
 
+import InfoTip from '../components/InfoTip.jsx';
+import Collapsible from '../components/Collapsible.jsx';
+
 export default function DataHealth({ data }) {
   const {
     matches,
@@ -84,13 +87,13 @@ export default function DataHealth({ data }) {
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         <StatCard label="Total Matches" value={allMatches.length} />
-        <StatCard label="In Scope" value={matches.length} />
+        <StatCard label={<>In Scope <InfoTip text="Matches from 2025-12-01 onward (current competitive season)." /></>} value={matches.length} />
         <StatCard label="Excluded (pre-scope)" value={allMatches.length - matches.length} />
         <StatCard label="Player Rows (scoped)" value={playerRows.length} />
       </div>
 
       {/* Format Breakdown */}
-      <Section title="Format Breakdown">
+      <Collapsible title="Format Breakdown">
         <Table
           rows={[
             ['All matches', allMatches.length],
@@ -100,36 +103,40 @@ export default function DataHealth({ data }) {
           ]}
           headers={['Category', 'Count']}
         />
-      </Section>
+      </Collapsible>
 
       {/* Dataset Qualification */}
-      <Section title="Dataset Qualification (scoped matches)">
+      <Collapsible title="Dataset Qualification (scoped matches)">
         <Table
           rows={[
-            ['Loose (1 FULL_TEAM)', qualLoose],
-            ['Strict (FULL_TEAM vs STACK_3PLUS+)', qualStrict],
-            ['H2H (both STACK_3PLUS+)', qualH2h],
+            [<>Loose <InfoTip text="One side is a full team (4/4 same team). Opponent can be anyone." /></>, qualLoose],
+            [<>Strict <InfoTip text="One side is a full team AND the opponent has at least 3 players from the same team." /></>, qualStrict],
+            [<>H2H <InfoTip text="Both sides have at least 3 players from the same team. True team vs team matches." /></>, qualH2h],
             ['Standings (1 STACK_3PLUS+)', qualStandings],
           ]}
           headers={['Dataset', 'Qualifying Matches']}
         />
-      </Section>
+      </Collapsible>
 
       {/* Side Classification Distribution */}
-      <Section title="Side Classifications (scoped, both sides counted)">
+      <Collapsible title="Side Classifications (scoped, both sides counted)">
         <Table
-          rows={Object.entries(classCounts).sort((a, b) => b[1] - a[1])}
+          rows={[
+            [<>FULL_TEAM <InfoTip text="All 4 players on one side belong to the same team." /></>, classCounts.FULL_TEAM || 0],
+            [<>STACK_3PLUS <InfoTip text="3 of 4 players belong to the same team, 1 is a substitute or unaffiliated." /></>, classCounts.STACK_3PLUS || 0],
+            [<>MIX <InfoTip text="Players from different teams mixed together, no dominant team." /></>, classCounts.MIX || 0],
+          ]}
           headers={['Classification', 'Count']}
         />
-      </Section>
+      </Collapsible>
 
       {/* Map Frequency */}
-      <Section title="Maps Played (scoped)">
+      <Collapsible title="Maps Played (scoped)">
         <Table rows={mapEntries} headers={['Map', 'Games']} />
-      </Section>
+      </Collapsible>
 
       {/* Unresolved Players */}
-      <Section title="Unresolved Players (not in registry)">
+      <Collapsible title="Unresolved Players (not in registry)">
         {unresolvedPlayers.length === 0 ? (
           <GoodMsg>All players resolved</GoodMsg>
         ) : (
@@ -141,11 +148,11 @@ export default function DataHealth({ data }) {
             (across {scopedUnresolved.length} player-rows)
           </p>
         )}
-      </Section>
+      </Collapsible>
 
       {/* Top Unregistered Nicknames */}
       {unresolvedNickCounts && Object.keys(unresolvedNickCounts).length > 0 && (
-        <Section title="Top Unregistered Nicknames">
+        <Collapsible title="Top Unregistered Nicknames">
           <p className="text-sm mb-2" style={{ color: 'var(--color-text-muted)' }}>
             Most frequently appearing unresolved nicks — consider adding to player_registry.json.
           </p>
@@ -156,20 +163,20 @@ export default function DataHealth({ data }) {
               .map(([nick, count]) => [nick, `${count} match${count !== 1 ? 'es' : ''}`])}
             headers={['Nickname', 'Appearances']}
           />
-        </Section>
+        </Collapsible>
       )}
 
       {/* Unaffiliated Players */}
-      <Section title="Unaffiliated Players (in registry but no team)">
+      <Collapsible title="Unaffiliated Players (in registry but no team)">
         {unaffiliated.length === 0 ? (
           <GoodMsg>All resolved players have team affiliations</GoodMsg>
         ) : (
           <List items={unaffiliated} color="var(--color-draw)" />
         )}
-      </Section>
+      </Collapsible>
 
       {/* Steam ID Issues */}
-      <Section title="Steam ID Discrepancies">
+      <Collapsible title="Steam ID Discrepancies">
         {missingSteamId.length === 0 ? (
           <GoodMsg>No steam ID issues</GoodMsg>
         ) : (
@@ -180,10 +187,10 @@ export default function DataHealth({ data }) {
             <List items={missingSteamId} color="var(--color-draw)" />
           </>
         )}
-      </Section>
+      </Collapsible>
 
       {/* Role Annotations */}
-      <Section title="Role Annotations">
+      <Collapsible title="Role Annotations">
         <Table
           rows={[
             ['Parsed role assignments', totalRoleEntries],
@@ -211,11 +218,11 @@ export default function DataHealth({ data }) {
             />
           </div>
         )}
-      </Section>
+      </Collapsible>
 
       {/* Orphaned Role Entries */}
       {orphanedRoles && orphanedRoles.length > 0 && (
-        <Section title="Role entries without match data (external server)">
+        <Collapsible title="Role entries without match data (external server)">
           <p className="text-sm mb-2" style={{ color: 'var(--color-text-muted)' }}>
             These role annotations reference dates not present in the uploaded qllr data.
             They may be from external servers or matches not tracked by qllr.
@@ -227,11 +234,11 @@ export default function DataHealth({ data }) {
             )}
             color="var(--color-text-muted)"
           />
-        </Section>
+        </Collapsible>
       )}
 
       {/* Computed Data Summary */}
-      <Section title="Computed Data Summary">
+      <Collapsible title="Computed Data Summary">
         <Table
           rows={[
             ['Team match rows (scoped)', teamMatchRows.length],
@@ -241,7 +248,7 @@ export default function DataHealth({ data }) {
           ]}
           headers={['Metric', 'Value']}
         />
-      </Section>
+      </Collapsible>
     </div>
   );
 }
@@ -258,20 +265,6 @@ function StatCard({ label, value }) {
         {label}
       </p>
       <p className="text-2xl font-bold mt-1">{value}</p>
-    </div>
-  );
-}
-
-function Section({ title, children }) {
-  return (
-    <div className="mb-6">
-      <h3 className="text-lg font-semibold mb-3">{title}</h3>
-      <div
-        className="rounded-lg p-4"
-        style={{ backgroundColor: 'var(--color-surface)' }}
-      >
-        {children}
-      </div>
     </div>
   );
 }
