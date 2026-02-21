@@ -21,6 +21,7 @@ export default function DataHealth({ data }) {
     rolesLinkedByFallback,
     rolesStillUnlinked,
     duplicateRoles,
+    duplicateRoleExamples,
     durationParseErrors,
     pairStats,
     lineupStats,
@@ -219,6 +220,22 @@ export default function DataHealth({ data }) {
                 return `${e.date_local} ${e.map} (${e.score_wb}-${e.score_opp} vs ${e.opponent}) — ${reason}`;
               })}
               color="var(--color-draw)"
+            />
+          </div>
+        )}
+        {duplicateRoleExamples && duplicateRoleExamples.length > 0 && (
+          <div className="mt-3">
+            <p className="text-sm font-medium mb-1" style={{ color: 'var(--color-draw)' }}>
+              Duplicate role examples ({duplicateRoles} total — last entry wins):
+            </p>
+            <Table
+              rows={duplicateRoleExamples.map((d) => [
+                d.match_id,
+                d.canonical,
+                d.existing,
+                d.incoming,
+              ])}
+              headers={['Match ID', 'Player', 'Existing Role', 'Overwritten By']}
             />
           </div>
         )}

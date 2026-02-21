@@ -143,7 +143,7 @@ export default function CloseGames({ data, onNavigateMatchLog }) {
       </div>
 
       <p className="text-sm mb-6" style={{ color: 'var(--color-text-muted)' }}>
-        Close games: \u00B11 cap differential (excludes draws) &middot; Loose dataset &middot; {total} games
+        Close games: {'\u00B1'}1 cap differential (excludes draws) &middot; Loose dataset &middot; {total} games
       </p>
 
       {total === 0 ? (
