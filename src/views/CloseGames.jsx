@@ -8,15 +8,13 @@ import ExportButton from '../components/ExportButton.jsx';
 import InfoTip from '../components/InfoTip.jsx';
 import { getStatColor } from '../utils/getStatColor.js';
 
-const FOCUS = 'wAnnaBees';
-
 export default function CloseGames({ data, onNavigateMatchLog }) {
-  const { teamMatchRows } = data;
+  const { teamMatchRows, focusTeam } = data;
 
-  // All wB matches (loose)
+  // All focus team matches (loose)
   const focusRows = useMemo(() => {
-    return teamMatchRows.filter((r) => r.team_name === FOCUS && r.qualifies_loose);
-  }, [teamMatchRows]);
+    return teamMatchRows.filter((r) => r.team_name === focusTeam && r.qualifies_loose);
+  }, [teamMatchRows, focusTeam]);
 
   // Close games: ±1 cap, excluding draws
   const closeGames = useMemo(() => {
@@ -143,7 +141,7 @@ export default function CloseGames({ data, onNavigateMatchLog }) {
       </div>
 
       <p className="text-sm mb-6" style={{ color: 'var(--color-text-muted)' }}>
-        Close games: {'\u00B1'}1 cap differential (excludes draws) &middot; Loose dataset &middot; {total} games
+        Close games: &plusmn;1 cap differential (excludes draws) &middot; Loose dataset &middot; {total} games
       </p>
 
       {total === 0 ? (

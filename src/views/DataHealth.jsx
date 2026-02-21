@@ -203,7 +203,7 @@ export default function DataHealth({ data }) {
             ['Linked by fallback (date/map/score)', rolesLinkedByFallback ?? 0],
             ['Orphaned (no match data)', orphanedRoles ? orphanedRoles.length : 0],
             ['Still unlinked (date exists, match failed)', unlinkedRoles.length],
-            ['Duplicate role entries (last wins)', duplicateRoles ?? 0],
+            ['Duplicate role entries (disagree→ROTATION)', duplicateRoles ?? 0],
           ]}
           headers={['Metric', 'Count']}
         />
@@ -227,7 +227,7 @@ export default function DataHealth({ data }) {
         {duplicateRoleExamples && duplicateRoleExamples.length > 0 && (
           <div className="mt-3">
             <p className="text-sm font-medium mb-1" style={{ color: 'var(--color-draw)' }}>
-              Duplicate role examples ({duplicateRoles} total — last entry wins):
+              Duplicate role examples ({duplicateRoles} total — disagreeing roles merged to ROTATION):
             </p>
             <Table
               rows={duplicateRoleExamples.map((d) => [
@@ -235,8 +235,9 @@ export default function DataHealth({ data }) {
                 d.canonical,
                 d.existing,
                 d.incoming,
+                d.existing === d.incoming ? 'kept' : 'ROTATION',
               ])}
-              headers={['Match ID', 'Player', 'Existing Role', 'Overwritten By']}
+              headers={['Match ID', 'Player', 'First Role', 'Second Role', 'Resolution']}
             />
           </div>
         )}

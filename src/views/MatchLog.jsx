@@ -10,12 +10,11 @@ import ExportButton from '../components/ExportButton.jsx';
 import InfoTip from '../components/InfoTip.jsx';
 import PlayerNames from '../components/PlayerNames.jsx';
 
-const FOCUS = 'wAnnaBees';
 const FORMATION_OPTIONS = ['', '1def-3off', '2def-2off', '1def-2off-1mid', 'custom'];
 const ROTATION_OPTIONS = ['', 'Rigid', 'Dynamic', 'Mixed'];
 
 export default function MatchLog({ data, initialFilters, matchNotes, onSaveNote }) {
-  const { matches, teamMatchRows, playerRows } = data;
+  const { matches, teamMatchRows, playerRows, focusTeam } = data;
 
   // Build lookup maps
   const matchMap = useMemo(() => {
@@ -41,7 +40,7 @@ export default function MatchLog({ data, initialFilters, matchNotes, onSaveNote 
   }, [teamMatchRows]);
 
   // Team filter state
-  const [filterTeam, setFilterTeam] = useState(initialFilters?.team || FOCUS);
+  const [filterTeam, setFilterTeam] = useState(initialFilters?.team || focusTeam);
   const isAllTeams = filterTeam === 'all';
 
   // Build team members for sub badges (for the selected team perspective)
@@ -254,7 +253,7 @@ export default function MatchLog({ data, initialFilters, matchNotes, onSaveNote 
     : [
         { key: 'date', label: 'Date' },
         { key: 'map', label: 'Map' },
-        { key: 'score_for', label: filterTeam === FOCUS ? 'wB' : filterTeam },
+        { key: 'score_for', label: filterTeam === focusTeam ? 'wB' : filterTeam },
         { key: 'score_against', label: 'Opp' },
         { key: 'result', label: 'Result' },
         { key: 'opponent', label: 'Opponent' },
@@ -483,16 +482,20 @@ function MatchRow({ row, isExpanded, onToggle, playersByMatch, matchMap, colCoun
             {r.team_blue}
           </td>
           <td className="px-3 py-1.5 border-b" style={{ borderColor: 'var(--color-border)' }}>
-            <a
-              href={r.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              className="text-xs underline"
-              style={{ color: 'var(--color-accent)' }}
-            >
-              qllr
-            </a>
+            {r.url ? (
+              <a
+                href={r.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="text-xs underline"
+                style={{ color: 'var(--color-accent)' }}
+              >
+                qllr
+              </a>
+            ) : (
+              <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>&ndash;</span>
+            )}
           </td>
         </tr>
         {isExpanded && (
@@ -592,16 +595,20 @@ function MatchRow({ row, isExpanded, onToggle, playersByMatch, matchMap, colCoun
           <PlayerNames names={r.player_names} teamMembers={teamMembers} separator=", " />
         </td>
         <td className="px-3 py-1.5 border-b" style={{ borderColor: 'var(--color-border)' }}>
-          <a
-            href={r.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            className="text-xs underline"
-            style={{ color: 'var(--color-accent)' }}
-          >
-            qllr
-          </a>
+          {r.url ? (
+            <a
+              href={r.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="text-xs underline"
+              style={{ color: 'var(--color-accent)' }}
+            >
+              qllr
+            </a>
+          ) : (
+            <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>&ndash;</span>
+          )}
         </td>
       </tr>
       {isExpanded && (
@@ -927,7 +934,7 @@ function ExpandedDetail({ matchId, side, playersByMatch, match, isAllTeams, team
                   <td className="px-4 py-0.5">{p.kd_ratio.toFixed(2)}</td>
                   <td className="px-4 py-0.5">{p.caps}</td>
                   <td className="px-4 py-0.5">{p.defends}</td>
-                  <td className="px-4 py-0.5">{p.dpm.toFixed(0)}</td>
+                  <td className="px-4 py-0.5">{p.dpm != null ? p.dpm.toFixed(0) : '\u2014'}</td>
                   <td
                     className="px-4 py-0.5"
                     style={{
