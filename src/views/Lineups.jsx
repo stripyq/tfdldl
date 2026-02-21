@@ -6,12 +6,23 @@
 
 import { useState, useMemo } from 'react';
 import ExportButton from '../components/ExportButton.jsx';
+import PlayerNames from '../components/PlayerNames.jsx';
+import { getStatColor, getStatBg } from '../utils/getStatColor.js';
 
 const FOCUS = 'wAnnaBees';
 const MIN_GAMES = 3;
 
 export default function Lineups({ data, onNavigateMatchLog }) {
-  const { lineupStats, pairStats, teamMatchRows } = data;
+  const { lineupStats, pairStats, teamMatchRows, playerRows } = data;
+
+  // Build set of focus team members for sub badges
+  const teamMembers = useMemo(() => {
+    const set = new Set();
+    for (const p of playerRows) {
+      if (p.team_membership === FOCUS) set.add(p.canonical);
+    }
+    return set;
+  }, [playerRows]);
 
   // --- Lineup table ---
   const [sortCol, setSortCol] = useState('games');
@@ -189,6 +200,7 @@ export default function Lineups({ data, onNavigateMatchLog }) {
                     oppBreakdown={lineupOppBreakdown.get(l.lineup_key)}
                     colCount={colCount}
                     onNavigateMatchLog={onNavigateMatchLog}
+                    teamMembers={teamMembers}
                   />
                 );
               })}
@@ -282,8 +294,8 @@ export default function Lineups({ data, onNavigateMatchLog }) {
                         title={`${row} + ${col}: ${pair.wins}-${pair.losses} (${pair.games}g)`}
                         style={{
                           borderColor: 'var(--color-border)',
-                          backgroundColor: pairBg(pct),
-                          color: pct > 65 ? 'var(--color-win)' : pct < 45 ? 'var(--color-loss)' : 'var(--color-text)',
+                          backgroundColor: getStatBg(pct, 'winPct'),
+                          color: getStatColor(pct, 'winPct') || 'var(--color-text)',
                           minWidth: 36,
                         }}
                       >
@@ -301,7 +313,7 @@ export default function Lineups({ data, onNavigateMatchLog }) {
   );
 }
 
-function LineupRow({ lineup, isExpanded, onToggle, oppBreakdown, colCount, onNavigateMatchLog }) {
+function LineupRow({ lineup, isExpanded, onToggle, oppBreakdown, colCount, onNavigateMatchLog, teamMembers }) {
   const l = lineup;
 
   // Build sorted opponent breakdown
@@ -329,7 +341,7 @@ function LineupRow({ lineup, isExpanded, onToggle, oppBreakdown, colCount, onNav
         style={{ backgroundColor: isExpanded ? 'var(--color-surface-hover)' : undefined }}
       >
         <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)' }}>
-          {l.player_names.join(' \u00B7 ')}
+          <PlayerNames names={l.player_names} teamMembers={teamMembers} />
         </td>
         <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)' }}>
           <span
@@ -343,7 +355,7 @@ function LineupRow({ lineup, isExpanded, onToggle, oppBreakdown, colCount, onNav
           className="py-1.5 border-b font-semibold"
           style={{
             borderColor: 'var(--color-border)',
-            color: l.win_pct * 100 > 60 ? 'var(--color-win)' : l.win_pct * 100 < 40 ? 'var(--color-loss)' : undefined,
+            color: getStatColor(l.win_pct * 100, 'winPct'),
           }}
         >
           {(l.win_pct * 100).toFixed(0)}%
@@ -355,15 +367,15 @@ function LineupRow({ lineup, isExpanded, onToggle, oppBreakdown, colCount, onNav
           className="py-1.5 border-b"
           style={{
             borderColor: 'var(--color-border)',
-            color: l.avg_cap_diff > 0 ? 'var(--color-win)' : l.avg_cap_diff < 0 ? 'var(--color-loss)' : undefined,
+            color: getStatColor(l.avg_cap_diff, 'capDiff'),
           }}
         >
           {l.avg_cap_diff >= 0 ? '+' : ''}{l.avg_cap_diff.toFixed(1)}
         </td>
-        <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)' }}>
+        <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)', color: getStatColor(l.avg_net_damage, 'netDmg') }}>
           {l.avg_net_damage.toFixed(0)}
         </td>
-        <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)' }}>
+        <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)', color: getStatColor(l.avg_damage_hhi, 'hhi') }}>
           {l.avg_damage_hhi.toFixed(3)}
         </td>
         <td className="py-1.5 border-b text-xs" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-muted)' }}>
@@ -407,7 +419,7 @@ function LineupRow({ lineup, isExpanded, onToggle, oppBreakdown, colCount, onNav
                         className="py-1 border-b font-semibold"
                         style={{
                           borderColor: 'var(--color-border)',
-                          color: o.winPct > 60 ? 'var(--color-win)' : o.winPct < 40 ? 'var(--color-loss)' : undefined,
+                          color: getStatColor(o.winPct, 'winPct'),
                         }}
                       >
                         {o.winPct.toFixed(0)}%
@@ -416,7 +428,7 @@ function LineupRow({ lineup, isExpanded, onToggle, oppBreakdown, colCount, onNav
                         className="py-1 border-b"
                         style={{
                           borderColor: 'var(--color-border)',
-                          color: o.avgCapDiff > 0 ? 'var(--color-win)' : o.avgCapDiff < 0 ? 'var(--color-loss)' : undefined,
+                          color: getStatColor(o.avgCapDiff, 'capDiff'),
                         }}
                       >
                         {o.avgCapDiff >= 0 ? '+' : ''}{o.avgCapDiff.toFixed(1)}
@@ -433,8 +445,3 @@ function LineupRow({ lineup, isExpanded, onToggle, oppBreakdown, colCount, onNav
   );
 }
 
-function pairBg(pct) {
-  if (pct > 65) return 'rgba(34, 197, 94, 0.15)';
-  if (pct < 45) return 'rgba(239, 68, 68, 0.12)';
-  return 'transparent';
-}

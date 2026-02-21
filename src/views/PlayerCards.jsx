@@ -6,6 +6,7 @@
 import { useState, useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import ExportButton from '../components/ExportButton.jsx';
+import { getStatColor } from '../utils/getStatColor.js';
 
 const FOCUS = 'wAnnaBees';
 const WEAPON_COLORS = {
@@ -300,18 +301,18 @@ function PlayerCard({ name, playerRows, teamMatchRows, matchMap, onNavigateMatch
           <Stat
             label="Win%"
             value={`${stats.winPct.toFixed(0)}%`}
-            color={stats.winPct > 55 ? 'var(--color-win)' : stats.winPct < 45 ? 'var(--color-loss)' : undefined}
+            color={getStatColor(stats.winPct, 'winPct')}
           />
-          <Stat label="K/D" value={stats.kd.toFixed(2)} />
+          <Stat label="K/D" value={stats.kd.toFixed(2)} color={getStatColor(stats.kd, 'kd')} />
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Stat label="Avg Frags" value={stats.avgFrags.toFixed(1)} />
           <Stat label="Avg Deaths" value={stats.avgDeaths.toFixed(1)} />
-          <Stat label="DPM" value={stats.avgDpm.toFixed(0)} />
+          <Stat label="DPM" value={stats.avgDpm.toFixed(0)} color={getStatColor(stats.avgDpm, 'dpm')} />
           <Stat
             label="Net Dmg"
             value={stats.avgNetDmg >= 0 ? `+${stats.avgNetDmg.toFixed(0)}` : stats.avgNetDmg.toFixed(0)}
-            color={stats.avgNetDmg > 0 ? 'var(--color-win)' : stats.avgNetDmg < 0 ? 'var(--color-loss)' : undefined}
+            color={getStatColor(stats.avgNetDmg, 'netDmg')}
           />
         </div>
       </div>
@@ -421,16 +422,16 @@ function PlayerCard({ name, playerRows, teamMatchRows, matchMap, onNavigateMatch
                   className="py-1.5 border-b font-medium"
                   style={{
                     borderColor: 'var(--color-border)',
-                    color: m.winPct > 60 ? 'var(--color-win)' : m.winPct < 40 ? 'var(--color-loss)' : undefined,
+                    color: getStatColor(m.winPct, 'winPct'),
                   }}
                 >
                   {m.winPct.toFixed(0)}%
                   {m.games < 3 && <span className="sample-warn" title="Small sample size">{'\u26A0'}</span>}
                 </td>
-                <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)' }}>
+                <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)', color: getStatColor(m.avgDpm, 'dpm') }}>
                   {m.avgDpm.toFixed(0)}
                 </td>
-                <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)' }}>
+                <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)', color: getStatColor(m.avgKd, 'kd') }}>
                   {m.avgKd.toFixed(2)}
                 </td>
                 <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-muted)' }}>

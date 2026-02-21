@@ -6,6 +6,7 @@
 
 import { useMemo } from 'react';
 import ExportButton from '../components/ExportButton.jsx';
+import { getStatColor, getStatBg } from '../utils/getStatColor.js';
 
 const FOCUS = 'wAnnaBees';
 
@@ -152,7 +153,7 @@ export default function OpponentMatrix({ data, onNavigateMatchLog }) {
                       className="py-1.5 border-b text-center font-semibold"
                       style={{
                         borderColor: 'var(--color-border)',
-                        color: globalPct > 60 ? 'var(--color-win)' : globalPct < 40 ? 'var(--color-loss)' : 'var(--color-text)',
+                        color: getStatColor(globalPct, 'winPct'),
                       }}
                     >
                       {globalPct.toFixed(0)}%
@@ -181,7 +182,7 @@ export default function OpponentMatrix({ data, onNavigateMatchLog }) {
                           className="py-1.5 border-b text-center px-2"
                           style={{
                             borderColor: 'var(--color-border)',
-                            backgroundColor: cellBg(pct),
+                            backgroundColor: getStatBg(pct, 'winPct'),
                           }}
                         >
                           <span
@@ -212,10 +213,3 @@ export default function OpponentMatrix({ data, onNavigateMatchLog }) {
   );
 }
 
-function cellBg(winPct) {
-  if (winPct > 65) return 'rgba(34, 197, 94, 0.15)';
-  if (winPct > 55) return 'rgba(34, 197, 94, 0.07)';
-  if (winPct < 35) return 'rgba(239, 68, 68, 0.15)';
-  if (winPct < 45) return 'rgba(239, 68, 68, 0.07)';
-  return 'transparent';
-}

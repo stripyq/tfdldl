@@ -5,11 +5,13 @@
 
 import { useState, useMemo } from 'react';
 import ExportButton from '../components/ExportButton.jsx';
+import PlayerNames from '../components/PlayerNames.jsx';
+import { getStatColor } from '../utils/getStatColor.js';
 
 const FOCUS = 'wAnnaBees';
 
 export default function OpponentScouting({ data }) {
-  const { teamMatchRows } = data;
+  const { teamMatchRows, playerRows } = data;
 
   // All non-focus teams that appear in the data
   const opponents = useMemo(() => {
@@ -25,6 +27,16 @@ export default function OpponentScouting({ data }) {
 
   const [selectedOpp, setSelectedOpp] = useState('');
   const opp = selectedOpp || opponents[0] || '';
+
+  // Build set of opponent team members for sub badges
+  const oppMembers = useMemo(() => {
+    if (!opp) return new Set();
+    const set = new Set();
+    for (const p of playerRows) {
+      if (p.team_membership === opp) set.add(p.canonical);
+    }
+    return set;
+  }, [playerRows, opp]);
 
   // All rows for the selected opponent (all their matches, not just vs wB)
   const oppRows = useMemo(() => {
@@ -195,7 +207,7 @@ export default function OpponentScouting({ data }) {
               <Stat
                 label="Win%"
                 value={`${overall.winPct.toFixed(0)}%`}
-                color={overall.winPct > 55 ? 'var(--color-loss)' : overall.winPct < 45 ? 'var(--color-win)' : undefined}
+                color={getStatColor(overall.winPct, 'winPct', true)}
               />
               <Stat label="Avg DPM" value={avgStats.avgDpm.toFixed(0)} />
               <Stat
@@ -259,7 +271,7 @@ export default function OpponentScouting({ data }) {
                       className="py-1.5 border-b font-semibold"
                       style={{
                         borderColor: 'var(--color-border)',
-                        color: m.winPct > 60 ? 'var(--color-loss)' : m.winPct < 40 ? 'var(--color-win)' : undefined,
+                        color: getStatColor(m.winPct, 'winPct', true),
                       }}
                     >
                       {m.winPct.toFixed(0)}%
@@ -335,7 +347,7 @@ export default function OpponentScouting({ data }) {
                     return (
                       <tr key={l.key}>
                         <td className="py-1.5 border-b text-xs" style={{ borderColor: 'var(--color-border)' }}>
-                          {l.players.join(' \u00B7 ')}
+                          <PlayerNames names={l.players} teamMembers={oppMembers} />
                         </td>
                         <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)' }}>
                           {l.games}
@@ -347,7 +359,7 @@ export default function OpponentScouting({ data }) {
                           className="py-1.5 border-b font-semibold"
                           style={{
                             borderColor: 'var(--color-border)',
-                            color: pct > 60 ? 'var(--color-loss)' : pct < 40 ? 'var(--color-win)' : undefined,
+                            color: getStatColor(pct, 'winPct', true),
                           }}
                         >
                           {pct.toFixed(0)}%

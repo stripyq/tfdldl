@@ -7,10 +7,11 @@ import { useState, useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ReferenceLine } from 'recharts';
 import ExportButton from '../components/ExportButton.jsx';
 import InfoTip from '../components/InfoTip.jsx';
+import { getStatColor } from '../utils/getStatColor.js';
 
 const MIN_GAMES = 3;
 
-export default function MapStrength({ data, onNavigateMatchLog }) {
+export default function MapStrength({ data, onNavigateMatchLog, matchNotes }) {
   const { teamMatchRows } = data;
   const [mode, setMode] = useState('loose'); // 'loose' | 'strict'
   const [sortCol, setSortCol] = useState('games');
@@ -89,6 +90,32 @@ export default function MapStrength({ data, onNavigateMatchLog }) {
     [mapStats]
   );
 
+  // Formation breakdown per map from match notes
+  const mapFormationStats = useMemo(() => {
+    if (!matchNotes || matchNotes.size === 0) return [];
+    const focusRows = teamMatchRows.filter(
+      (r) => r.team_name === 'wAnnaBees' && r[predicate]
+    );
+    const byMap = {};
+    for (const r of focusRows) {
+      const note = matchNotes.get(r.match_id);
+      if (!note?.formation) continue;
+      if (!byMap[r.map]) byMap[r.map] = {};
+      const f = note.formation;
+      if (!byMap[r.map][f]) byMap[r.map][f] = { games: 0, wins: 0 };
+      byMap[r.map][f].games++;
+      if (r.result === 'W') byMap[r.map][f].wins++;
+    }
+    return Object.entries(byMap)
+      .map(([map, formations]) => ({
+        map,
+        formations: Object.entries(formations)
+          .map(([f, d]) => ({ formation: f, games: d.games, wins: d.wins, winPct: d.games > 0 ? (d.wins / d.games) * 100 : 0 }))
+          .sort((a, b) => b.games - a.games),
+      }))
+      .sort((a, b) => b.formations.reduce((s, f) => s + f.games, 0) - a.formations.reduce((s, f) => s + f.games, 0));
+  }, [teamMatchRows, predicate, matchNotes]);
+
   // Export-ready flat data
   const exportData = sorted.map((m) => ({
     map: m.map,
@@ -138,12 +165,11 @@ export default function MapStrength({ data, onNavigateMatchLog }) {
   }
 
   function cellColor(col, row) {
-    if (col === 'winPct') {
-      return row.winPct > 60 ? 'var(--color-win)' : row.winPct < 40 ? 'var(--color-loss)' : undefined;
-    }
-    if (col === 'avgCapDiff') {
-      return row.avgCapDiff > 0 ? 'var(--color-win)' : row.avgCapDiff < 0 ? 'var(--color-loss)' : undefined;
-    }
+    if (col === 'winPct') return getStatColor(row.winPct, 'winPct');
+    if (col === 'avgCapDiff') return getStatColor(row.avgCapDiff, 'capDiff');
+    if (col === 'avgNetDmg') return getStatColor(row.avgNetDmg, 'netDmg');
+    if (col === 'avgDpm') return getStatColor(row.avgDpm, 'dpm');
+    if (col === 'avgHhi') return getStatColor(row.avgHhi, 'hhi');
     return undefined;
   }
 
@@ -262,6 +288,39 @@ export default function MapStrength({ data, onNavigateMatchLog }) {
               </tbody>
             </table>
           </div>
+
+          {/* Formation per map (if annotated) */}
+          {mapFormationStats.length > 0 && (
+            <div
+              className="rounded-lg p-4 mb-6"
+              style={{ backgroundColor: 'var(--color-surface)' }}
+            >
+              <p
+                className="text-xs uppercase tracking-wide mb-3"
+                style={{ color: 'var(--color-text-muted)' }}
+              >
+                Formation by Map <InfoTip text="Based on match notes. Small sample — patterns only." />
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {mapFormationStats.map((m) => (
+                  <div key={m.map} className="px-3 py-2 rounded" style={{ backgroundColor: 'var(--color-bg)' }}>
+                    <p className="text-sm font-medium mb-1">{m.map}</p>
+                    <div className="flex flex-wrap gap-2">
+                      {m.formations.map((f) => (
+                        <span key={f.formation} className="text-xs">
+                          <span style={{ color: 'var(--color-accent)' }}>{f.formation}</span>
+                          {' '}
+                          <span style={{ color: getStatColor(f.winPct, 'winPct') }}>
+                            {f.wins}/{f.games} ({f.winPct.toFixed(0)}%)
+                          </span>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Bar chart */}
           <div
