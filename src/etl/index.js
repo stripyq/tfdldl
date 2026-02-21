@@ -51,7 +51,7 @@ export function processData(rawJson, playerRegistry, teamConfig, manualRoles) {
   // Parse ALL manual roles (linked, orphaned, and still-unlinked) so role data is available
   const roles = parseRoles(rolesCopy, teamConfig);
   const normalizeNick = buildNickNormalizer(teamConfig.clan_tag_patterns);
-  const { duplicateRoles } = mergeRoles(playerRows, roles, normalizeNick, playerRegistry);
+  const { duplicateRoles, duplicateRoleExamples } = mergeRoles(playerRows, roles, normalizeNick, playerRegistry);
 
   // Count entries still unlinked (no match_id) after fallback — excludes orphaned
   const matchIdSet = new Set(matches.map((m) => m.match_id));
@@ -107,6 +107,7 @@ export function processData(rawJson, playerRegistry, teamConfig, manualRoles) {
     rolesLinkedByFallback,
     rolesStillUnlinked,
     duplicateRoles,
+    duplicateRoleExamples,
     durationParseErrors,
     dataHash,
   };
