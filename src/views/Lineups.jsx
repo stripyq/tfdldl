@@ -1,6 +1,6 @@
 /**
  * Lineups view — lineup combo table + pair synergy heatmap.
- * Lineup table: min 3 games, sortable.
+ * Lineup table: min 3 games, sortable, expandable per-opponent breakdown.
  * Pair heatmap: wB players as rows/cols, cells = win% when pair plays together.
  */
 
@@ -16,6 +16,7 @@ export default function Lineups({ data, onNavigateMatchLog }) {
   // --- Lineup table ---
   const [sortCol, setSortCol] = useState('games');
   const [sortAsc, setSortAsc] = useState(false);
+  const [expandedLineup, setExpandedLineup] = useState(null);
 
   const filteredLineups = useMemo(
     () => lineupStats.filter((l) => l.games >= MIN_GAMES),
@@ -39,6 +40,24 @@ export default function Lineups({ data, onNavigateMatchLog }) {
       return sortAsc ? va - vb : vb - va;
     });
   }, [filteredLineups, sortCol, sortAsc]);
+
+  // Per-lineup per-opponent breakdown from teamMatchRows
+  const lineupOppBreakdown = useMemo(() => {
+    const focusRows = teamMatchRows.filter((r) => r.team_name === FOCUS);
+    const map = new Map(); // lineup_key -> Map<opponent, { games, wins, losses, totalCapDiff }>
+    for (const r of focusRows) {
+      if (!map.has(r.lineup_key)) map.set(r.lineup_key, new Map());
+      const oppMap = map.get(r.lineup_key);
+      const opp = r.opponent_team || 'MIX';
+      if (!oppMap.has(opp)) oppMap.set(opp, { games: 0, wins: 0, losses: 0, totalCapDiff: 0 });
+      const entry = oppMap.get(opp);
+      entry.games++;
+      if (r.result === 'W') entry.wins++;
+      if (r.result === 'L') entry.losses++;
+      entry.totalCapDiff += r.cap_diff;
+    }
+    return map;
+  }, [teamMatchRows]);
 
   function handleSort(col) {
     if (sortCol === col) setSortAsc(!sortAsc);
@@ -105,6 +124,8 @@ export default function Lineups({ data, onNavigateMatchLog }) {
     { key: 'avgHhi', label: 'HHI' },
   ];
 
+  const colCount = columns.length + 1; // +1 for Maps column
+
   return (
     <div className="p-6 max-w-6xl mx-auto">
       {/* Lineup Table */}
@@ -119,7 +140,7 @@ export default function Lineups({ data, onNavigateMatchLog }) {
       </div>
 
       <p className="text-sm mb-4" style={{ color: 'var(--color-text-muted)' }}>
-        Lineups with {MIN_GAMES}+ games &middot; {filteredLineups.length} lineups
+        Lineups with {MIN_GAMES}+ games &middot; {filteredLineups.length} lineups &middot; click row to expand opponent breakdown
       </p>
 
       {sortedLineups.length === 0 ? (
@@ -157,51 +178,20 @@ export default function Lineups({ data, onNavigateMatchLog }) {
               </tr>
             </thead>
             <tbody>
-              {sortedLineups.map((l) => (
-                <tr key={l.lineup_key}>
-                  <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)' }}>
-                    {l.player_names.join(' \u00B7 ')}
-                  </td>
-                  <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)' }}>
-                    <span
-                      className="stat-link"
-                      onClick={() => onNavigateMatchLog?.({ lineup: l.lineup_key })}
-                    >
-                      {l.games}
-                    </span>
-                  </td>
-                  <td
-                    className="py-1.5 border-b font-semibold"
-                    style={{
-                      borderColor: 'var(--color-border)',
-                      color: l.win_pct * 100 > 60 ? 'var(--color-win)' : l.win_pct * 100 < 40 ? 'var(--color-loss)' : undefined,
-                    }}
-                  >
-                    {(l.win_pct * 100).toFixed(0)}%
-                    <span className="text-xs font-normal ml-1" style={{ color: 'var(--color-text-muted)' }}>
-                      ({l.wins}-{l.losses})
-                    </span>
-                  </td>
-                  <td
-                    className="py-1.5 border-b"
-                    style={{
-                      borderColor: 'var(--color-border)',
-                      color: l.avg_cap_diff > 0 ? 'var(--color-win)' : l.avg_cap_diff < 0 ? 'var(--color-loss)' : undefined,
-                    }}
-                  >
-                    {l.avg_cap_diff >= 0 ? '+' : ''}{l.avg_cap_diff.toFixed(1)}
-                  </td>
-                  <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)' }}>
-                    {l.avg_net_damage.toFixed(0)}
-                  </td>
-                  <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)' }}>
-                    {l.avg_damage_hhi.toFixed(3)}
-                  </td>
-                  <td className="py-1.5 border-b text-xs" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-muted)' }}>
-                    {Object.entries(l.maps_played).map(([m, c]) => `${m}(${c})`).join(', ')}
-                  </td>
-                </tr>
-              ))}
+              {sortedLineups.map((l) => {
+                const isExpanded = expandedLineup === l.lineup_key;
+                return (
+                  <LineupRow
+                    key={l.lineup_key}
+                    lineup={l}
+                    isExpanded={isExpanded}
+                    onToggle={() => setExpandedLineup(isExpanded ? null : l.lineup_key)}
+                    oppBreakdown={lineupOppBreakdown.get(l.lineup_key)}
+                    colCount={colCount}
+                    onNavigateMatchLog={onNavigateMatchLog}
+                  />
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -308,6 +298,138 @@ export default function Lineups({ data, onNavigateMatchLog }) {
         </div>
       )}
     </div>
+  );
+}
+
+function LineupRow({ lineup, isExpanded, onToggle, oppBreakdown, colCount, onNavigateMatchLog }) {
+  const l = lineup;
+
+  // Build sorted opponent breakdown
+  const oppRows = useMemo(() => {
+    if (!oppBreakdown) return [];
+    const rows = [];
+    for (const [opp, d] of oppBreakdown) {
+      rows.push({
+        opponent: opp,
+        games: d.games,
+        wins: d.wins,
+        losses: d.losses,
+        winPct: d.games > 0 ? (d.wins / d.games) * 100 : 0,
+        avgCapDiff: d.games > 0 ? d.totalCapDiff / d.games : 0,
+      });
+    }
+    return rows.sort((a, b) => b.games - a.games);
+  }, [oppBreakdown]);
+
+  return (
+    <>
+      <tr
+        onClick={onToggle}
+        className="cursor-pointer"
+        style={{ backgroundColor: isExpanded ? 'var(--color-surface-hover)' : undefined }}
+      >
+        <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)' }}>
+          {l.player_names.join(' \u00B7 ')}
+        </td>
+        <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)' }}>
+          <span
+            className="stat-link"
+            onClick={(e) => { e.stopPropagation(); onNavigateMatchLog?.({ lineup: l.lineup_key }); }}
+          >
+            {l.games}
+          </span>
+        </td>
+        <td
+          className="py-1.5 border-b font-semibold"
+          style={{
+            borderColor: 'var(--color-border)',
+            color: l.win_pct * 100 > 60 ? 'var(--color-win)' : l.win_pct * 100 < 40 ? 'var(--color-loss)' : undefined,
+          }}
+        >
+          {(l.win_pct * 100).toFixed(0)}%
+          <span className="text-xs font-normal ml-1" style={{ color: 'var(--color-text-muted)' }}>
+            ({l.wins}-{l.losses})
+          </span>
+        </td>
+        <td
+          className="py-1.5 border-b"
+          style={{
+            borderColor: 'var(--color-border)',
+            color: l.avg_cap_diff > 0 ? 'var(--color-win)' : l.avg_cap_diff < 0 ? 'var(--color-loss)' : undefined,
+          }}
+        >
+          {l.avg_cap_diff >= 0 ? '+' : ''}{l.avg_cap_diff.toFixed(1)}
+        </td>
+        <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)' }}>
+          {l.avg_net_damage.toFixed(0)}
+        </td>
+        <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)' }}>
+          {l.avg_damage_hhi.toFixed(3)}
+        </td>
+        <td className="py-1.5 border-b text-xs" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-muted)' }}>
+          {Object.entries(l.maps_played).map(([m, c]) => `${m}(${c})`).join(', ')}
+        </td>
+      </tr>
+      {isExpanded && (
+        <tr>
+          <td colSpan={colCount} style={{ backgroundColor: 'var(--color-bg)' }}>
+            <div className="py-2 px-4">
+              <p className="text-xs font-medium mb-2" style={{ color: 'var(--color-text-muted)' }}>
+                Per-Opponent Breakdown
+              </p>
+              <table className="w-full text-xs">
+                <thead>
+                  <tr>
+                    {['Opponent', 'G', 'W-L', 'Win%', 'Avg Cap Diff'].map((h) => (
+                      <th
+                        key={h}
+                        className="text-left pb-1 border-b font-medium"
+                        style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-muted)' }}
+                      >
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {oppRows.map((o) => (
+                    <tr key={o.opponent}>
+                      <td className="py-1 border-b" style={{ borderColor: 'var(--color-border)' }}>
+                        {o.opponent}
+                      </td>
+                      <td className="py-1 border-b" style={{ borderColor: 'var(--color-border)' }}>
+                        {o.games}
+                      </td>
+                      <td className="py-1 border-b" style={{ borderColor: 'var(--color-border)' }}>
+                        {o.wins}-{o.losses}
+                      </td>
+                      <td
+                        className="py-1 border-b font-semibold"
+                        style={{
+                          borderColor: 'var(--color-border)',
+                          color: o.winPct > 60 ? 'var(--color-win)' : o.winPct < 40 ? 'var(--color-loss)' : undefined,
+                        }}
+                      >
+                        {o.winPct.toFixed(0)}%
+                      </td>
+                      <td
+                        className="py-1 border-b"
+                        style={{
+                          borderColor: 'var(--color-border)',
+                          color: o.avgCapDiff > 0 ? 'var(--color-win)' : o.avgCapDiff < 0 ? 'var(--color-loss)' : undefined,
+                        }}
+                      >
+                        {o.avgCapDiff >= 0 ? '+' : ''}{o.avgCapDiff.toFixed(1)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </td>
+        </tr>
+      )}
+    </>
   );
 }
 

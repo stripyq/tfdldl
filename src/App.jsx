@@ -8,12 +8,14 @@ import PlayerCards from './views/PlayerCards.jsx';
 import MatchLog from './views/MatchLog.jsx';
 import DataHealth from './views/DataHealth.jsx';
 import DraftHelper from './views/DraftHelper.jsx';
+import OpponentScouting from './views/OpponentScouting.jsx';
 import { processData } from './etl/index.js';
 
 const VIEWS = [
   { id: 'overview', label: 'Overview' },
   { id: 'maps', label: 'Map Strength' },
   { id: 'opponents', label: 'Opponents' },
+  { id: 'scouting', label: 'Scouting' },
   { id: 'lineups', label: 'Lineups' },
   { id: 'players', label: 'Player Cards' },
   { id: 'draft', label: 'Draft Helper' },
@@ -243,6 +245,7 @@ export default function App() {
           {activeView === 'overview' && <Overview data={data} onNavigateMatchLog={navigateToMatchLog} />}
           {activeView === 'maps' && <MapStrength data={data} onNavigateMatchLog={navigateToMatchLog} />}
           {activeView === 'opponents' && <OpponentMatrix data={data} onNavigateMatchLog={navigateToMatchLog} />}
+          {activeView === 'scouting' && <OpponentScouting data={data} />}
           {activeView === 'lineups' && <Lineups data={data} onNavigateMatchLog={navigateToMatchLog} />}
           {activeView === 'players' && <PlayerCards data={data} onNavigateMatchLog={navigateToMatchLog} matchNotes={mergedNotes} />}
           {activeView === 'draft' && <DraftHelper data={data} />}
