@@ -18,7 +18,7 @@ const WEAPON_COLORS = {
   Other: '#888888',
 };
 
-export default function PlayerCards({ data, onNavigateMatchLog, matchNotes }) {
+export default function PlayerCards({ data, officialOnly, onNavigateMatchLog, matchNotes }) {
   const { playerRows, teamMatchRows, matches } = data;
 
   // Build match lookup
@@ -31,7 +31,7 @@ export default function PlayerCards({ data, onNavigateMatchLog, matchNotes }) {
   // Get all wB players in loose-qualifying matches
   const wbPlayers = useMemo(() => {
     const focusRows = teamMatchRows.filter(
-      (r) => r.team_name === FOCUS && r.qualifies_loose
+      (r) => r.team_name === FOCUS && r.qualifies_loose && (!officialOnly || r.match_type === 'official')
     );
     const matchIds = new Set(focusRows.map((r) => r.match_id));
     const focusSides = new Map();
@@ -48,7 +48,7 @@ export default function PlayerCards({ data, onNavigateMatchLog, matchNotes }) {
     return Object.entries(playerGames)
       .sort((a, b) => b[1] - a[1])
       .map(([name]) => name);
-  }, [playerRows, teamMatchRows]);
+  }, [playerRows, teamMatchRows, officialOnly]);
 
   const [selectedA, setSelectedA] = useState('');
   const [selectedB, setSelectedB] = useState('');
@@ -102,6 +102,7 @@ export default function PlayerCards({ data, onNavigateMatchLog, matchNotes }) {
           matchMap={matchMap}
           onNavigateMatchLog={onNavigateMatchLog}
           matchNotes={matchNotes}
+          officialOnly={officialOnly}
         />
         {compareMode && (
           <PlayerCard
@@ -111,6 +112,7 @@ export default function PlayerCards({ data, onNavigateMatchLog, matchNotes }) {
             matchMap={matchMap}
             onNavigateMatchLog={onNavigateMatchLog}
             matchNotes={matchNotes}
+            officialOnly={officialOnly}
           />
         )}
       </div>
@@ -142,13 +144,13 @@ function PlayerSelect({ label, players, value, onChange }) {
   );
 }
 
-function PlayerCard({ name, playerRows, teamMatchRows, matchMap, onNavigateMatchLog, matchNotes }) {
+function PlayerCard({ name, playerRows, teamMatchRows, matchMap, onNavigateMatchLog, matchNotes, officialOnly }) {
   const stats = useMemo(() => {
     if (!name) return null;
 
     // Get focus team's loose-qualifying match IDs and sides
     const focusRows = teamMatchRows.filter(
-      (r) => r.team_name === FOCUS && r.qualifies_loose
+      (r) => r.team_name === FOCUS && r.qualifies_loose && (!officialOnly || r.match_type === 'official')
     );
     const matchIds = new Set(focusRows.map((r) => r.match_id));
     const focusSides = new Map();
@@ -253,7 +255,7 @@ function PlayerCard({ name, playerRows, teamMatchRows, matchMap, onNavigateMatch
       weaponProfile,
       mapBreakdown,
     };
-  }, [name, playerRows, teamMatchRows, matchMap, matchNotes]);
+  }, [name, playerRows, teamMatchRows, matchMap, matchNotes, officialOnly]);
 
   const exportData = stats ? stats.mapBreakdown.map((m) => ({
     player: name,

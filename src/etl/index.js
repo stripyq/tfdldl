@@ -78,6 +78,30 @@ export function processData(rawJson, playerRegistry, teamConfig, manualRoles, ma
     (r) => !matchIdSet.has(r.match_id) && !orphanedRoles.includes(r)
   );
 
+  // Step 6d: Stamp match_type from manual_roles session field
+  // "official ..." → official, everything else → practice
+  const matchTypeMap = new Map();
+  for (const entry of rolesCopy) {
+    if (!entry.match_id || matchTypeMap.has(entry.match_id)) continue;
+    const session = (entry.session || '').toLowerCase();
+    if (session.startsWith('official')) {
+      const roundInfo = entry.session.slice('official'.length).trim() || null;
+      matchTypeMap.set(entry.match_id, { match_type: 'official', match_round: roundInfo });
+    } else {
+      matchTypeMap.set(entry.match_id, { match_type: 'practice', match_round: null });
+    }
+  }
+  for (const m of matches) {
+    const info = matchTypeMap.get(m.match_id);
+    m.match_type = info?.match_type || 'practice';
+    m.match_round = info?.match_round || null;
+  }
+  for (const r of teamMatchRows) {
+    const info = matchTypeMap.get(r.match_id);
+    r.match_type = info?.match_type || 'practice';
+    r.match_round = info?.match_round || null;
+  }
+
   // Scope filter: only matches after scope_date
   const scopedMatches = matches.filter((m) => m.date_local >= teamConfig.scope_date);
   const scopedMatchIds = new Set(scopedMatches.map((m) => m.match_id));

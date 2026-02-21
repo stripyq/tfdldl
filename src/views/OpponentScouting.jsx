@@ -10,7 +10,7 @@ import { getStatColor } from '../utils/getStatColor.js';
 
 const FOCUS = 'wAnnaBees';
 
-export default function OpponentScouting({ data, initialOpponent }) {
+export default function OpponentScouting({ data, officialOnly, initialOpponent }) {
   const { teamMatchRows, playerRows } = data;
 
   // All non-focus teams that appear in the data
@@ -18,12 +18,13 @@ export default function OpponentScouting({ data, initialOpponent }) {
     const counts = {};
     for (const r of teamMatchRows) {
       if (r.team_name === FOCUS) continue;
+      if (officialOnly && r.match_type !== 'official') continue;
       counts[r.team_name] = (counts[r.team_name] || 0) + 1;
     }
     return Object.entries(counts)
       .sort((a, b) => b[1] - a[1])
       .map(([name]) => name);
-  }, [teamMatchRows]);
+  }, [teamMatchRows, officialOnly]);
 
   const [selectedOpp, setSelectedOpp] = useState(initialOpponent?.opponent || '');
   const opp = selectedOpp || opponents[0] || '';
@@ -41,8 +42,8 @@ export default function OpponentScouting({ data, initialOpponent }) {
   // All rows for the selected opponent (all their matches, not just vs wB)
   const oppRows = useMemo(() => {
     if (!opp) return [];
-    return teamMatchRows.filter((r) => r.team_name === opp);
-  }, [teamMatchRows, opp]);
+    return teamMatchRows.filter((r) => r.team_name === opp && (!officialOnly || r.match_type === 'official'));
+  }, [teamMatchRows, opp, officialOnly]);
 
   // --- Overall record ---
   const overall = useMemo(() => {

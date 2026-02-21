@@ -10,7 +10,7 @@ import ExportButton from '../components/ExportButton.jsx';
 import InfoTip from '../components/InfoTip.jsx';
 import { getStatColor } from '../utils/getStatColor.js';
 
-export default function RoleAnalysis({ data }) {
+export default function RoleAnalysis({ data, officialOnly }) {
   const { playerRows, matches, teamMatchRows, focusTeam } = data;
 
   // Build matchMap for win/loss lookups
@@ -27,10 +27,11 @@ export default function RoleAnalysis({ data }) {
       // Focus team only — check via teamMatchRows membership
       const match = matchMap.get(r.match_id);
       if (!match) return false;
+      if (officialOnly && match.match_type !== 'official') return false;
       const teamOnSide = r.side === 'red' ? match.team_red : match.team_blue;
       return teamOnSide === focusTeam && match.qualifies_loose;
     });
-  }, [playerRows, matchMap]);
+  }, [playerRows, matchMap, officialOnly, focusTeam]);
 
   // --- Section 1: Role × Weapon Profile ---
   const roleWeaponStats = useMemo(() => {
@@ -184,7 +185,7 @@ export default function RoleAnalysis({ data }) {
       withRotation: summarize(withRotation),
       withoutRotation: summarize(withoutRotation),
     };
-  }, [enrichedRows, teamMatchRows]);
+  }, [enrichedRows, teamMatchRows, focusTeam]);
 
   // --- Section 4: Role × Map Breakdown ---
   const roleMapStats = useMemo(() => {

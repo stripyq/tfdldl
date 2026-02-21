@@ -50,6 +50,7 @@ export default function App() {
   const [activeView, setActiveView] = useState('overview');
   const [matchLogFilters, setMatchLogFilters] = useState(null);
   const [opponentFilter, setOpponentFilter] = useState(null);
+  const [officialOnly, setOfficialOnly] = useState(false);
 
   // Match notes: loaded from file + added in-session
   const [loadedNotes, setLoadedNotes] = useState([]);
@@ -106,6 +107,23 @@ export default function App() {
       setTimeout(() => setClipboardCopied(false), 2000);
     });
   }, [sessionNotes]);
+
+  // Apply match_type overrides from notes onto data
+  const effectiveData = useMemo(() => {
+    if (!data) return null;
+    const overrides = new Map();
+    for (const [id, note] of mergedNotes) {
+      if (note.match_type) overrides.set(id, note.match_type);
+    }
+    if (overrides.size === 0) return data;
+    const matches = data.matches.map((m) =>
+      overrides.has(m.match_id) ? { ...m, match_type: overrides.get(m.match_id) } : m
+    );
+    const teamMatchRows = data.teamMatchRows.map((r) =>
+      overrides.has(r.match_id) ? { ...r, match_type: overrides.get(r.match_id) } : r
+    );
+    return { ...data, matches, teamMatchRows };
+  }, [data, mergedNotes]);
 
   function navigateToMatchLog(filters) {
     setMatchLogFilters({ ...filters, _ts: Date.now() });
@@ -236,6 +254,18 @@ export default function App() {
           <span className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
             {data.matches.length} matches loaded
           </span>
+          <button
+            onClick={() => setOfficialOnly((p) => !p)}
+            className="text-xs px-3 py-1 rounded cursor-pointer font-medium"
+            style={{
+              backgroundColor: officialOnly ? 'var(--color-accent)' : 'var(--color-surface-hover)',
+              color: officialOnly ? 'var(--color-bg)' : 'var(--color-text-muted)',
+              border: officialOnly ? '1px solid var(--color-accent)' : '1px solid var(--color-border)',
+            }}
+            title={officialOnly ? 'Showing official matches only — click to show all' : 'Showing all matches — click to filter to official only'}
+          >
+            {officialOnly ? 'Official Only' : 'All Matches'}
+          </button>
           {data.dataHash && (
             <span
               className="text-xs font-mono px-2 py-0.5 rounded"
@@ -339,25 +369,26 @@ export default function App() {
 
         {/* Main content */}
         <main className="flex-1 overflow-y-auto">
-          {activeView === 'overview' && <Overview data={data} onNavigateMatchLog={navigateToMatchLog} onNavigateOpponent={navigateToOpponent} matchNotes={mergedNotes} leagueConfig={configs?.leagueConfig} />}
-          {activeView === 'maps' && <MapStrength data={data} onNavigateMatchLog={navigateToMatchLog} matchNotes={mergedNotes} />}
-          {activeView === 'opponents' && <OpponentMatrix data={data} onNavigateMatchLog={navigateToMatchLog} initialOpponent={opponentFilter} key={`opp-${opponentFilter?._ts || 'default'}`} />}
-          {activeView === 'scouting' && <OpponentScouting data={data} initialOpponent={opponentFilter} key={`scout-${opponentFilter?._ts || 'default'}`} />}
-          {activeView === 'opp-players' && <OpponentPlayers data={data} onNavigateMatchLog={navigateToMatchLog} initialOpponent={opponentFilter} key={`opppl-${opponentFilter?._ts || 'default'}`} />}
-          {activeView === 'close-games' && <CloseGames data={data} onNavigateMatchLog={navigateToMatchLog} />}
-          {activeView === 'lineups' && <Lineups data={data} onNavigateMatchLog={navigateToMatchLog} />}
-          {activeView === 'players' && <PlayerCards data={data} onNavigateMatchLog={navigateToMatchLog} matchNotes={mergedNotes} />}
-          {activeView === 'roles' && <RoleAnalysis data={data} />}
+          {activeView === 'overview' && <Overview data={effectiveData} officialOnly={officialOnly} onNavigateMatchLog={navigateToMatchLog} onNavigateOpponent={navigateToOpponent} matchNotes={mergedNotes} leagueConfig={configs?.leagueConfig} />}
+          {activeView === 'maps' && <MapStrength data={effectiveData} officialOnly={officialOnly} onNavigateMatchLog={navigateToMatchLog} matchNotes={mergedNotes} />}
+          {activeView === 'opponents' && <OpponentMatrix data={effectiveData} officialOnly={officialOnly} onNavigateMatchLog={navigateToMatchLog} matchNotes={mergedNotes} initialOpponent={opponentFilter} key={`opp-${opponentFilter?._ts || 'default'}`} />}
+          {activeView === 'scouting' && <OpponentScouting data={effectiveData} officialOnly={officialOnly} initialOpponent={opponentFilter} key={`scout-${opponentFilter?._ts || 'default'}`} />}
+          {activeView === 'opp-players' && <OpponentPlayers data={effectiveData} officialOnly={officialOnly} onNavigateMatchLog={navigateToMatchLog} initialOpponent={opponentFilter} key={`opppl-${opponentFilter?._ts || 'default'}`} />}
+          {activeView === 'close-games' && <CloseGames data={effectiveData} officialOnly={officialOnly} onNavigateMatchLog={navigateToMatchLog} />}
+          {activeView === 'lineups' && <Lineups data={effectiveData} officialOnly={officialOnly} onNavigateMatchLog={navigateToMatchLog} />}
+          {activeView === 'players' && <PlayerCards data={effectiveData} officialOnly={officialOnly} onNavigateMatchLog={navigateToMatchLog} matchNotes={mergedNotes} />}
+          {activeView === 'roles' && <RoleAnalysis data={effectiveData} officialOnly={officialOnly} />}
           {activeView === 'matches' && (
             <MatchLog
-              data={data}
+              data={effectiveData}
+              officialOnly={officialOnly}
               initialFilters={matchLogFilters}
               key={matchLogFilters?._ts || 'default'}
               matchNotes={mergedNotes}
               onSaveNote={handleSaveNote}
             />
           )}
-          {activeView === 'health' && <DataHealth data={data} />}
+          {activeView === 'health' && <DataHealth data={effectiveData} />}
         </main>
       </div>
     </div>
