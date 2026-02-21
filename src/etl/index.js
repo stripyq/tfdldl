@@ -25,10 +25,19 @@ import { checkRegistryIntegrity } from './registryIntegrity.js';
  */
 export function processData(rawJson, playerRegistry, teamConfig, manualRoles, manualMatches) {
   // Merge manual matches into the raw array (deduplicate by match_id)
+  // If a manual match_id collides with a qllr match_id, prefer qllr (more complete data)
   let combined = rawJson;
+  const manualOverrides = [];
   if (manualMatches && manualMatches.length > 0) {
     const existingIds = new Set(rawJson.map((m) => m.match_id));
-    const toAdd = manualMatches.filter((m) => !existingIds.has(m.match_id));
+    const toAdd = [];
+    for (const m of manualMatches) {
+      if (existingIds.has(m.match_id)) {
+        manualOverrides.push(m.match_id);
+      } else {
+        toAdd.push(m);
+      }
+    }
     combined = [...rawJson, ...toAdd];
   }
 
@@ -127,6 +136,7 @@ export function processData(rawJson, playerRegistry, teamConfig, manualRoles, ma
     registryIntegrity,
     manualMatchCount: scopedMatches.filter((m) => m.manual).length,
     manualMatchSources: [...new Set(scopedMatches.filter((m) => m.manual).map((m) => m.source))],
+    manualOverrides,
     dataHash,
   };
 }
