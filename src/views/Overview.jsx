@@ -9,12 +9,26 @@ import ExportButton from '../components/ExportButton.jsx';
 import InfoTip from '../components/InfoTip.jsx';
 import { getStatColor } from '../utils/getStatColor.js';
 
-export default function Overview({ data, onNavigateMatchLog, matchNotes }) {
+function fmtRatio(flagsFor, flagsAgainst) {
+  if (flagsFor === 0 && flagsAgainst === 0) return '\u2014';
+  if (flagsAgainst === 0) return '\u221E';
+  return (flagsFor / flagsAgainst).toFixed(2);
+}
+
+function ratioColor(flagsFor, flagsAgainst) {
+  if (flagsAgainst === 0) return flagsFor > 0 ? 'var(--color-win)' : undefined;
+  const ratio = flagsFor / flagsAgainst;
+  if (ratio >= 1.0) return 'var(--color-win)';
+  return 'var(--color-loss)';
+}
+
+export default function Overview({ data, onNavigateMatchLog, matchNotes, leagueConfig }) {
   const { teamMatchRows, focusTeam } = data;
 
   // Focus team rows with loose qualification
-  const focusRows = teamMatchRows.filter(
-    (r) => r.team_name === focusTeam && r.qualifies_loose
+  const focusRows = useMemo(
+    () => teamMatchRows.filter((r) => r.team_name === focusTeam && r.qualifies_loose),
+    [teamMatchRows, focusTeam]
   );
 
   const wins = focusRows.filter((r) => r.result === 'W').length;
@@ -29,6 +43,10 @@ export default function Overview({ data, onNavigateMatchLog, matchNotes }) {
   const avgCapDiff = total > 0
     ? focusRows.reduce((s, r) => s + r.cap_diff, 0) / total
     : 0;
+
+  // Global flags ratio
+  const globalFlagsFor = focusRows.reduce((s, r) => s + r.score_for, 0);
+  const globalFlagsAgainst = focusRows.reduce((s, r) => s + r.score_against, 0);
 
   // Close games: decided by ±1 cap
   const closeGames = focusRows.filter((r) => Math.abs(r.cap_diff) <= 1 && r.result !== 'D');
@@ -166,6 +184,89 @@ export default function Overview({ data, onNavigateMatchLog, matchNotes }) {
   const annotatedCount = formationStats.reduce((s, f) => s + f.games, 0)
     + rotationStats.reduce((s, r) => s + r.games, 0);
 
+  // --- Series heuristic: group maps into series by opponent + date ---
+  const seriesData = useMemo(() => {
+    const seriesMap = {};
+    for (const r of focusRows) {
+      if (!r.opponent_team) continue;
+      const key = `${r.opponent_team}::${r.date_local}`;
+      if (!seriesMap[key]) seriesMap[key] = { opponent: r.opponent_team, date: r.date_local, maps: [] };
+      seriesMap[key].maps.push(r);
+    }
+
+    const allSeries = Object.values(seriesMap).map((s) => {
+      const mapsWon = s.maps.filter((m) => m.result === 'W').length;
+      const mapsLost = s.maps.filter((m) => m.result === 'L').length;
+      const mapCount = s.maps.length;
+      const flagsFor = s.maps.reduce((sum, m) => sum + m.score_for, 0);
+      const flagsAgainst = s.maps.reduce((sum, m) => sum + m.score_against, 0);
+      let quality = 'OK';
+      if (mapCount === 1) quality = 'WEAK';
+      else if (mapCount > 3) quality = 'AMBIGUOUS';
+
+      let outcome = `${mapsWon}-${mapsLost}`;
+      if (quality === 'OK') {
+        if (mapsWon >= 2 && mapsLost === 0) outcome = '2-0';
+        else if (mapsWon >= 2 && mapsLost >= 1) outcome = '2-1';
+        else if (mapsLost >= 2 && mapsWon <= 0) outcome = '0-2';
+        else if (mapsLost >= 2 && mapsWon >= 1) outcome = '1-2';
+      }
+
+      return { ...s, mapsWon, mapsLost, mapCount, quality, outcome, flagsFor, flagsAgainst };
+    });
+
+    // Outcome counts (only OK quality)
+    const okSeries = allSeries.filter((s) => s.quality === 'OK');
+    const outcomes = { '2-0': 0, '2-1': 0, '1-2': 0, '0-2': 0 };
+    for (const s of okSeries) {
+      if (outcomes[s.outcome] !== undefined) outcomes[s.outcome]++;
+    }
+    const okTotal = okSeries.length;
+    const weakCount = allSeries.filter((s) => s.quality === 'WEAK').length;
+    const ambiguousCount = allSeries.filter((s) => s.quality === 'AMBIGUOUS').length;
+
+    const totalMapsWon = allSeries.reduce((s, x) => s + x.mapsWon, 0);
+    const totalMapsLost = allSeries.reduce((s, x) => s + x.mapsLost, 0);
+    const seriesCount = allSeries.length;
+    const avgMapsWon = seriesCount > 0 ? totalMapsWon / seriesCount : 0;
+    const avgMapsLost = seriesCount > 0 ? totalMapsLost / seriesCount : 0;
+
+    // Per-opponent series table
+    const byOpp = {};
+    for (const s of allSeries) {
+      if (!byOpp[s.opponent]) {
+        byOpp[s.opponent] = {
+          opponent: s.opponent, series: 0, mapsWon: 0, mapsLost: 0,
+          outcomes: { '2-0': 0, '2-1': 0, '1-2': 0, '0-2': 0 },
+          okCount: 0, weakCount: 0, ambiguousCount: 0,
+          flagsFor: 0, flagsAgainst: 0,
+        };
+      }
+      const o = byOpp[s.opponent];
+      o.series++;
+      o.mapsWon += s.mapsWon;
+      o.mapsLost += s.mapsLost;
+      o.flagsFor += s.flagsFor;
+      o.flagsAgainst += s.flagsAgainst;
+      if (s.quality === 'OK' && o.outcomes[s.outcome] !== undefined) o.outcomes[s.outcome]++;
+      if (s.quality === 'OK') o.okCount++;
+      else if (s.quality === 'WEAK') o.weakCount++;
+      else o.ambiguousCount++;
+    }
+    const oppSeriesRows = Object.values(byOpp)
+      .map((o) => ({
+        ...o,
+        avgMapsWon: o.series > 0 ? o.mapsWon / o.series : 0,
+        avgMapsLost: o.series > 0 ? o.mapsLost / o.series : 0,
+      }))
+      .sort((a, b) => b.series - a.series);
+
+    return {
+      allSeries, outcomes, okTotal, weakCount, ambiguousCount,
+      seriesCount, avgMapsWon, avgMapsLost, oppSeriesRows,
+    };
+  }, [focusRows]);
+
   return (
     <div className="p-6 max-w-4xl mx-auto">
       <div className="flex items-center justify-between mb-6">
@@ -199,12 +300,18 @@ export default function Overview({ data, onNavigateMatchLog, matchNotes }) {
           </span>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Metric label={<>Avg DPM <InfoTip text="Damage Per Minute. Measures combat output normalized by game length." /></>} value={avgDpm.toFixed(0)} />
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          <Metric label={<>Avg DPM <InfoTip text="Damage per minute. Measures combat output normalized by game length." /></>} value={avgDpm.toFixed(0)} />
           <Metric
             label="Avg Cap Diff"
             value={avgCapDiff >= 0 ? `+${avgCapDiff.toFixed(1)}` : avgCapDiff.toFixed(1)}
             color={avgCapDiff >= 0 ? 'var(--color-win)' : 'var(--color-loss)'}
+          />
+          <Metric
+            label={<>Flags Ratio <InfoTip text="Flags captured / flags conceded. Above 1.0 = capturing more than conceding. Used as a league tiebreaker." /></>}
+            value={fmtRatio(globalFlagsFor, globalFlagsAgainst)}
+            color={ratioColor(globalFlagsFor, globalFlagsAgainst)}
+            subtitle={`${globalFlagsFor} for, ${globalFlagsAgainst} against`}
           />
           <Metric
             label={<>Close Games (±1) <InfoTip text="Match decided by ±1 cap difference." /></>}
@@ -273,6 +380,128 @@ export default function Overview({ data, onNavigateMatchLog, matchNotes }) {
       >
         <OpponentBreakdown rows={focusRows} onNavigateMatchLog={onNavigateMatchLog} />
       </CollapsibleCard>
+
+      {/* League Standings Metrics */}
+      {seriesData.seriesCount > 0 && (
+        <CollapsibleCard
+          title={<>League Standings <InfoTip text="Series are detected by grouping matches on the same date vs the same opponent. This is a heuristic — not all groupings may represent actual BO3 series." /></>}
+          summary={`${seriesData.seriesCount} series${leagueConfig ? ` \u00B7 ${leagueConfig.league_name}` : ''}`}
+          right={
+            <ExportButton
+              data={seriesData.oppSeriesRows.map((o) => ({
+                opponent: o.opponent,
+                series: o.series,
+                '2-0': o.outcomes['2-0'],
+                '2-1': o.outcomes['2-1'],
+                '1-2': o.outcomes['1-2'],
+                '0-2': o.outcomes['0-2'],
+                avg_maps_won: o.avgMapsWon.toFixed(2),
+                avg_maps_lost: o.avgMapsLost.toFixed(2),
+                flags_ratio: fmtRatio(o.flagsFor, o.flagsAgainst),
+                ok: o.okCount,
+                weak: o.weakCount,
+                ambiguous: o.ambiguousCount,
+              }))}
+              filename="wb_series_by_opponent.csv"
+            />
+          }
+        >
+          {/* Series overview metrics */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+            <div>
+              <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Avg Maps Won / Series</p>
+              <p className="text-lg font-bold">{seriesData.avgMapsWon.toFixed(2)}</p>
+            </div>
+            <div>
+              <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Avg Maps Lost / Series</p>
+              <p className="text-lg font-bold">{seriesData.avgMapsLost.toFixed(2)}</p>
+            </div>
+            <div>
+              <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Series (OK quality)</p>
+              <p className="text-lg font-bold">{seriesData.okTotal}</p>
+            </div>
+            <div>
+              <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                Quality Issues <InfoTip text="Weak = only 1 map found (possible incomplete data). Ambiguous = 4+ maps (may be multiple series merged)." />
+              </p>
+              <p className="text-sm font-bold">
+                {seriesData.weakCount > 0 && <span style={{ color: 'var(--color-draw)' }}>{seriesData.weakCount} weak </span>}
+                {seriesData.ambiguousCount > 0 && <span style={{ color: 'var(--color-loss)' }}>{seriesData.ambiguousCount} ambiguous</span>}
+                {seriesData.weakCount === 0 && seriesData.ambiguousCount === 0 && <span style={{ color: 'var(--color-win)' }}>None</span>}
+              </p>
+            </div>
+          </div>
+
+          {/* Series outcome distribution (OK quality only) */}
+          {seriesData.okTotal > 0 && (
+            <div className="mb-4">
+              <p className="text-xs uppercase tracking-wide mb-2" style={{ color: 'var(--color-text-muted)' }}>
+                Series Outcomes (OK quality only)
+              </p>
+              <div className="grid grid-cols-4 gap-3">
+                {['2-0', '2-1', '1-2', '0-2'].map((outcome) => {
+                  const count = seriesData.outcomes[outcome];
+                  const pct = seriesData.okTotal > 0 ? (count / seriesData.okTotal) * 100 : 0;
+                  const isWin = outcome === '2-0' || outcome === '2-1';
+                  return (
+                    <div key={outcome} className="px-3 py-2 rounded text-center" style={{ backgroundColor: 'var(--color-bg)' }}>
+                      <p className="text-sm font-bold" style={{ color: isWin ? 'var(--color-win)' : 'var(--color-loss)' }}>
+                        {outcome}
+                      </p>
+                      <p className="text-lg font-bold">{count}</p>
+                      <p className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>{pct.toFixed(0)}%</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Per-opponent series table */}
+          <p className="text-xs uppercase tracking-wide mb-2" style={{ color: 'var(--color-text-muted)' }}>
+            Series by Opponent
+          </p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr>
+                  {['Opponent', 'Series', '2-0', '2-1', '1-2', '0-2', 'Avg W', 'Avg L', 'Flags Ratio', 'Quality'].map((h) => (
+                    <th
+                      key={h}
+                      className="text-left pb-2 border-b font-medium"
+                      style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-muted)' }}
+                    >
+                      {h === 'Flags Ratio' ? <>{h} <InfoTip text="Flags captured / flags conceded across all maps in series vs this opponent." /></> : h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {seriesData.oppSeriesRows.map((o) => (
+                  <tr key={o.opponent}>
+                    <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)' }}>{o.opponent}</td>
+                    <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)' }}>{o.series}</td>
+                    <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)', color: o.outcomes['2-0'] > 0 ? 'var(--color-win)' : undefined }}>{o.outcomes['2-0']}</td>
+                    <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)', color: o.outcomes['2-1'] > 0 ? 'var(--color-win)' : undefined }}>{o.outcomes['2-1']}</td>
+                    <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)', color: o.outcomes['1-2'] > 0 ? 'var(--color-loss)' : undefined }}>{o.outcomes['1-2']}</td>
+                    <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)', color: o.outcomes['0-2'] > 0 ? 'var(--color-loss)' : undefined }}>{o.outcomes['0-2']}</td>
+                    <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)' }}>{o.avgMapsWon.toFixed(1)}</td>
+                    <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)' }}>{o.avgMapsLost.toFixed(1)}</td>
+                    <td className="py-1.5 border-b font-medium" style={{ borderColor: 'var(--color-border)', color: ratioColor(o.flagsFor, o.flagsAgainst) }}>
+                      {fmtRatio(o.flagsFor, o.flagsAgainst)}
+                    </td>
+                    <td className="py-1.5 border-b text-xs" style={{ borderColor: 'var(--color-border)' }}>
+                      {o.okCount > 0 && <span style={{ color: 'var(--color-win)' }}>{o.okCount} OK</span>}
+                      {o.weakCount > 0 && <span className="ml-1" style={{ color: 'var(--color-draw)' }}>{o.weakCount} W</span>}
+                      {o.ambiguousCount > 0 && <span className="ml-1" style={{ color: 'var(--color-loss)' }}>{o.ambiguousCount} A</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </CollapsibleCard>
+      )}
 
       {/* Formation breakdown (from annotated matches) */}
       {(formationStats.length > 0 || rotationStats.length > 0) && (
@@ -583,10 +812,12 @@ function OpponentBreakdown({ rows, onNavigateMatchLog }) {
   const oppMap = {};
   for (const r of rows) {
     const opp = r.opponent_team || 'Unknown';
-    if (!oppMap[opp]) oppMap[opp] = { games: 0, wins: 0, losses: 0 };
+    if (!oppMap[opp]) oppMap[opp] = { games: 0, wins: 0, losses: 0, flagsFor: 0, flagsAgainst: 0 };
     oppMap[opp].games++;
     if (r.result === 'W') oppMap[opp].wins++;
     if (r.result === 'L') oppMap[opp].losses++;
+    oppMap[opp].flagsFor += r.score_for;
+    oppMap[opp].flagsAgainst += r.score_against;
   }
 
   const oppRows = Object.entries(oppMap)
@@ -601,13 +832,13 @@ function OpponentBreakdown({ rows, onNavigateMatchLog }) {
     <table className="w-full text-sm">
         <thead>
           <tr>
-            {['Opponent', 'G', 'W', 'L', 'Win%'].map((h) => (
+            {['Opponent', 'G', 'W', 'L', 'Win%', 'Flags Ratio'].map((h) => (
               <th
                 key={h}
                 className="text-left pb-2 border-b font-medium"
                 style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-muted)' }}
               >
-                {h}
+                {h === 'Flags Ratio' ? <>{h} <InfoTip text="Flags captured / flags conceded vs this opponent." /></> : h}
               </th>
             ))}
           </tr>
@@ -652,6 +883,16 @@ function OpponentBreakdown({ rows, onNavigateMatchLog }) {
                 }}
               >
                 {o.winPct.toFixed(0)}%
+                {o.games < 3 && <span className="sample-warn" title={`Low sample size: only ${o.games} game${o.games !== 1 ? 's' : ''}. Patterns may not be reliable.`}>{'\u26A0'}</span>}
+              </td>
+              <td
+                className="py-1.5 border-b font-medium"
+                style={{
+                  borderColor: 'var(--color-border)',
+                  color: ratioColor(o.flagsFor, o.flagsAgainst),
+                }}
+              >
+                {fmtRatio(o.flagsFor, o.flagsAgainst)}
                 {o.games < 3 && <span className="sample-warn" title={`Low sample size: only ${o.games} game${o.games !== 1 ? 's' : ''}. Patterns may not be reliable.`}>{'\u26A0'}</span>}
               </td>
             </tr>
