@@ -218,7 +218,12 @@ export default function MapStrength({ data, onNavigateMatchLog }) {
                           fontWeight: c.key === 'winPct' ? 600 : undefined,
                         }}
                       >
-                        {c.key === 'games' ? (
+                        {c.key === 'map' ? (
+                          <>
+                            {row.map}
+                            <ConfidenceBadge games={row.games} />
+                          </>
+                        ) : c.key === 'games' ? (
                           <span
                             className="stat-link"
                             onClick={() => onNavigateMatchLog?.({ map: row.map, dataset: mode })}
@@ -316,6 +321,23 @@ export default function MapStrength({ data, onNavigateMatchLog }) {
         </>
       )}
     </div>
+  );
+}
+
+function ConfidenceBadge({ games }) {
+  if (games >= 8) return null; // Reliable — no badge needed
+  const isLow = games <= 4;
+  return (
+    <span
+      className="ml-2 text-[10px] px-1.5 py-0.5 rounded font-medium"
+      style={{
+        backgroundColor: isLow ? 'rgba(249, 115, 22, 0.15)' : 'rgba(234, 179, 8, 0.15)',
+        color: isLow ? 'rgb(249, 115, 22)' : 'rgb(234, 179, 8)',
+      }}
+      title={isLow ? 'Low sample size (3-4 games)' : 'Limited sample size (5-7 games)'}
+    >
+      {'\u26A0'} {isLow ? 'Low sample' : 'Limited'}
+    </span>
   );
 }
 

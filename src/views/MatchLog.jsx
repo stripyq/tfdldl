@@ -77,6 +77,7 @@ export default function MatchLog({ data, initialFilters, matchNotes, onSaveNote 
   const [filterDataset, setFilterDataset] = useState(initialFilters?.dataset || (initialFilters ? 'all' : 'loose'));
   const [filterLineup, setFilterLineup] = useState(initialFilters?.lineup || null);
   const [filterPlayer, setFilterPlayer] = useState(initialFilters?.player || null);
+  const [filterClose, setFilterClose] = useState(initialFilters?.close || false);
   const [filterTag, setFilterTag] = useState('all');
   const [sortCol, setSortCol] = useState('date');
   const [sortAsc, setSortAsc] = useState(false);
@@ -92,6 +93,7 @@ export default function MatchLog({ data, initialFilters, matchNotes, onSaveNote 
       if (filterDataset === 'loose' && !r.qualifies_loose) return false;
       if (filterDataset === 'strict' && !r.qualifies_strict) return false;
       if (filterDataset === 'h2h' && !r.qualifies_h2h) return false;
+      if (filterClose && Math.abs(r.cap_diff) > 1) return false;
       if (filterLineup && r.lineup_key !== filterLineup) return false;
       if (filterPlayer && !r.player_names.includes(filterPlayer)) return false;
       if (filterTag !== 'all') {
@@ -102,7 +104,7 @@ export default function MatchLog({ data, initialFilters, matchNotes, onSaveNote 
       }
       return true;
     });
-  }, [allRows, filterMap, filterOpp, filterResult, filterDataset, filterLineup, filterPlayer, filterTag, matchNotes]);
+  }, [allRows, filterMap, filterOpp, filterResult, filterDataset, filterClose, filterLineup, filterPlayer, filterTag, matchNotes]);
 
   // Apply sorting
   const sorted = useMemo(() => {
@@ -138,6 +140,7 @@ export default function MatchLog({ data, initialFilters, matchNotes, onSaveNote 
   function clearSpecialFilters() {
     setFilterLineup(null);
     setFilterPlayer(null);
+    setFilterClose(false);
   }
 
   // Export data
@@ -217,8 +220,14 @@ export default function MatchLog({ data, initialFilters, matchNotes, onSaveNote 
       </div>
 
       {/* Active special filter badges */}
-      {(filterLineup || filterPlayer) && (
+      {(filterLineup || filterPlayer || filterClose) && (
         <div className="flex flex-wrap gap-2 mb-3">
+          {filterClose && (
+            <FilterBadge
+              label="Close games (\u00B11 cap)"
+              onClear={() => setFilterClose(false)}
+            />
+          )}
           {filterPlayer && (
             <FilterBadge
               label={`Player: ${filterPlayer}`}
@@ -340,6 +349,18 @@ function MatchRow({ row, isExpanded, onToggle, playersByMatch, matchMap, colCoun
           style={{ borderColor: 'var(--color-border)', color: resultColor }}
         >
           {r.result}
+          {Math.abs(r.cap_diff) <= 1 && r.result !== 'D' && (
+            <span
+              className="ml-1.5 text-[10px] font-medium px-1.5 py-0.5 rounded"
+              style={{
+                backgroundColor: 'rgba(234, 179, 8, 0.15)',
+                color: 'rgb(234, 179, 8)',
+              }}
+              title={`Close game: ${r.score_for}\u2013${r.score_against}`}
+            >
+              CLOSE
+            </span>
+          )}
         </td>
         <td className="px-3 py-1.5 border-b" style={{ borderColor: 'var(--color-border)' }}>
           {r.opponent_team || 'MIX'}
