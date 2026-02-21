@@ -26,6 +26,9 @@ export default function DataHealth({ data }) {
     pairLookupMisses,
     aliasCollisions,
     registryIntegrity,
+    manualMatchCount,
+    manualMatchSources,
+    manualOverrides,
     pairStats,
     lineupStats,
     scopeDate,
@@ -107,9 +110,19 @@ export default function DataHealth({ data }) {
             ['4v4', all4v4.length],
             ['Non-4v4', allNon4v4.length],
             ['Scoped 4v4', scoped4v4.length],
+            [`Manual entries${manualMatchSources?.length ? ` (${manualMatchSources.join(', ')})` : ''}`, manualMatchCount ?? 0],
+            ['Manual overridden by qllr', manualOverrides?.length ?? 0],
           ]}
           headers={['Category', 'Count']}
         />
+        {manualOverrides && manualOverrides.length > 0 && (
+          <div className="mt-3">
+            <p className="text-xs mb-1" style={{ color: 'var(--color-text-muted)' }}>
+              These manual match IDs were skipped because qllr data with the same ID exists (qllr preferred):
+            </p>
+            <List items={manualOverrides} color="var(--color-draw)" />
+          </div>
+        )}
       </Collapsible>
 
       {/* Dataset Qualification */}

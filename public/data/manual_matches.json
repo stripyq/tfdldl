@@ -1,0 +1,42 @@
+[
+  {
+    "manual": true,
+    "match_id": "manual-2026-02-15-tw-wb-ab",
+    "date_utc": "2026-02-15T21:26:00Z",
+    "map": "troubledwaters",
+    "duration": "20:00",
+    "score_red": 4,
+    "score_blue": 3,
+    "source": "screenshot",
+    "players": [
+      {"nick": "kirson", "team": "red", "score": 602, "frags": 53, "deaths": 49, "damage_dealt": 11030, "damage_taken": 8670},
+      {"nick": "zozo", "team": "red", "score": 547, "frags": 66, "deaths": 36, "damage_dealt": 10560, "damage_taken": 8489},
+      {"nick": "jcb", "team": "red", "score": 491, "frags": 50, "deaths": 60, "damage_dealt": 9420, "damage_taken": 8692},
+      {"nick": "lihensior", "team": "red", "score": 426, "frags": 58, "deaths": 68, "damage_dealt": 12731, "damage_taken": 9081},
+      {"nick": "supremee", "team": "blue", "score": 595, "frags": 52, "deaths": 22, "damage_dealt": 8710, "damage_taken": 7334},
+      {"nick": "ins", "team": "blue", "score": 448, "frags": 50, "deaths": 58, "damage_dealt": 9802, "damage_taken": 9244},
+      {"nick": "pengelephant", "team": "blue", "score": 422, "frags": 55, "deaths": 73, "damage_dealt": 10151, "damage_taken": 9737},
+      {"nick": "enesy", "team": "blue", "score": 338, "frags": 53, "deaths": 76, "damage_dealt": 10730, "damage_taken": 11357}
+    ]
+  },
+  {
+    "manual": true,
+    "match_id": "manual-2026-02-15-japan-wb-ab",
+    "date_utc": "2026-02-15T22:12:00Z",
+    "map": "japanesecastles",
+    "duration": "18:00",
+    "score_red": 7,
+    "score_blue": 2,
+    "source": "screenshot",
+    "players": [
+      {"nick": "fo_tbh", "team": "red", "score": 823, "frags": 42, "deaths": 37, "damage_dealt": 7267, "damage_taken": 6535},
+      {"nick": "kirson", "team": "red", "score": 746, "frags": 44, "deaths": 46, "damage_dealt": 8741, "damage_taken": 7210},
+      {"nick": "lihensior", "team": "red", "score": 653, "frags": 54, "deaths": 48, "damage_dealt": 8842, "damage_taken": 6816},
+      {"nick": "jcb", "team": "red", "score": 622, "frags": 43, "deaths": 53, "damage_dealt": 8839, "damage_taken": 8209},
+      {"nick": "ins", "team": "blue", "score": 605, "frags": 45, "deaths": 50, "damage_dealt": 7126, "damage_taken": 7184},
+      {"nick": "supremee", "team": "blue", "score": 459, "frags": 39, "deaths": 31, "damage_dealt": 7105, "damage_taken": 6160},
+      {"nick": "pengelephant", "team": "blue", "score": 375, "frags": 51, "deaths": 50, "damage_dealt": 10765, "damage_taken": 7463},
+      {"nick": "enesy", "team": "blue", "score": 354, "frags": 41, "deaths": 57, "damage_dealt": 8585, "damage_taken": 8769}
+    ]
+  }
+]

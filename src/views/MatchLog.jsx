@@ -69,6 +69,7 @@ export default function MatchLog({ data, initialFilters, matchNotes, onSaveNote 
         class_red: m.class_red,
         class_blue: m.class_blue,
         url: m.url || '',
+        manual: !!m.manual,
         qualifies_loose: m.qualifies_loose,
         qualifies_strict: m.qualifies_strict,
         qualifies_h2h: m.qualifies_h2h,
@@ -89,6 +90,7 @@ export default function MatchLog({ data, initialFilters, matchNotes, onSaveNote 
       return {
         ...r,
         url: match?.url || '',
+        manual: !!match?.manual,
         opp_class: oppClass,
         datetime_local: match?.datetime_local || '',
       };
@@ -482,20 +484,7 @@ function MatchRow({ row, isExpanded, onToggle, playersByMatch, matchMap, colCoun
             {r.team_blue}
           </td>
           <td className="px-3 py-1.5 border-b" style={{ borderColor: 'var(--color-border)' }}>
-            {r.url ? (
-              <a
-                href={r.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(e) => e.stopPropagation()}
-                className="text-xs underline"
-                style={{ color: 'var(--color-accent)' }}
-              >
-                qllr
-              </a>
-            ) : (
-              <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>&ndash;</span>
-            )}
+            <MatchSource url={r.url} manual={r.manual} />
           </td>
         </tr>
         {isExpanded && (
@@ -595,20 +584,7 @@ function MatchRow({ row, isExpanded, onToggle, playersByMatch, matchMap, colCoun
           <PlayerNames names={r.player_names} teamMembers={teamMembers} separator=", " />
         </td>
         <td className="px-3 py-1.5 border-b" style={{ borderColor: 'var(--color-border)' }}>
-          {r.url ? (
-            <a
-              href={r.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              className="text-xs underline"
-              style={{ color: 'var(--color-accent)' }}
-            >
-              qllr
-            </a>
-          ) : (
-            <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>&ndash;</span>
-          )}
+          <MatchSource url={r.url} manual={r.manual} />
         </td>
       </tr>
       {isExpanded && (
@@ -1028,6 +1004,31 @@ function FilterSelect({ label, value, onChange, options }) {
       </select>
     </div>
   );
+}
+
+function MatchSource({ url, manual }) {
+  if (manual) {
+    return (
+      <span className="text-xs" title="Manual entry (screenshot)" style={{ color: 'var(--color-text-muted)' }}>
+        {'\uD83D\uDCCB'}
+      </span>
+    );
+  }
+  if (url) {
+    return (
+      <a
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={(e) => e.stopPropagation()}
+        className="text-xs underline"
+        style={{ color: 'var(--color-accent)' }}
+      >
+        qllr
+      </a>
+    );
+  }
+  return <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>&ndash;</span>;
 }
 
 function formatClass(cls) {

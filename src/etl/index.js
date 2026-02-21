@@ -20,11 +20,29 @@ import { checkRegistryIntegrity } from './registryIntegrity.js';
  * @param {Array} playerRegistry - player_registry.json
  * @param {Object} teamConfig - team_config.json
  * @param {Array} manualRoles - manual_roles.json
+ * @param {Array} [manualMatches] - manual_matches.json (optional)
  * @returns {Object} Processed data containing all computed datasets
  */
-export function processData(rawJson, playerRegistry, teamConfig, manualRoles) {
+export function processData(rawJson, playerRegistry, teamConfig, manualRoles, manualMatches) {
+  // Merge manual matches into the raw array (deduplicate by match_id)
+  // If a manual match_id collides with a qllr match_id, prefer qllr (more complete data)
+  let combined = rawJson;
+  const manualOverrides = [];
+  if (manualMatches && manualMatches.length > 0) {
+    const existingIds = new Set(rawJson.map((m) => m.match_id));
+    const toAdd = [];
+    for (const m of manualMatches) {
+      if (existingIds.has(m.match_id)) {
+        manualOverrides.push(m.match_id);
+      } else {
+        toAdd.push(m);
+      }
+    }
+    combined = [...rawJson, ...toAdd];
+  }
+
   // Step 1: Parse raw matches into normalized structures (needs teamConfig for clan_tag_patterns)
-  const { matches, playerRows, unresolvedPlayers, durationParseErrors, aliasCollisions } = parseMatches(rawJson, playerRegistry, teamConfig);
+  const { matches, playerRows, unresolvedPlayers, durationParseErrors, aliasCollisions } = parseMatches(combined, playerRegistry, teamConfig);
 
   // Step 2: Resolve team membership per player per era
   resolveTeams(playerRows, matches, playerRegistry, teamConfig);
@@ -116,6 +134,9 @@ export function processData(rawJson, playerRegistry, teamConfig, manualRoles) {
     pairLookupMisses,
     aliasCollisions,
     registryIntegrity,
+    manualMatchCount: scopedMatches.filter((m) => m.manual).length,
+    manualMatchSources: [...new Set(scopedMatches.filter((m) => m.manual).map((m) => m.source))],
+    manualOverrides,
     dataHash,
   };
 }
