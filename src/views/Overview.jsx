@@ -293,16 +293,18 @@ export default function Overview({ data, onNavigateMatchLog, onNavigateOpponent,
 
       // Try to find a series result for this opponent within the round window
       let result = null;
+      let mapsPlayed = null;
       if (seriesData?.allSeries) {
         const matchingSeries = seriesData.allSeries.filter(
           (s) => s.opponent === opponent && s.date >= f.date_start && s.date <= (f.date_end || f.date_start)
         );
         if (matchingSeries.length === 1 && matchingSeries[0].quality === 'OK') {
           result = matchingSeries[0].outcome;
+          mapsPlayed = matchingSeries[0].mapCount;
         }
       }
 
-      return { round: f.round, date: f.date_start, dateEnd: f.date_end, opponent, hasData, isPast, result };
+      return { round: f.round, date: f.date_start, dateEnd: f.date_end, opponent, hasData, isPast, result, mapsPlayed };
     });
 
     // Find next match (first future fixture)
@@ -396,7 +398,7 @@ export default function Overview({ data, onNavigateMatchLog, onNavigateOpponent,
             <table className="w-full text-sm">
               <thead>
                 <tr>
-                  {['Round', 'Date', 'Opponent', 'Data', 'Result'].map((h) => (
+                  {['Round', 'Date', 'Opponent', 'Data', 'Result', 'Maps'].map((h) => (
                     <th
                       key={h}
                       className="text-left pb-2 border-b font-medium"
@@ -440,6 +442,11 @@ export default function Overview({ data, onNavigateMatchLog, onNavigateOpponent,
                           <span style={{ color: 'var(--color-text-muted)' }}>TBD</span>
                         ) : (
                           <span style={{ color: 'var(--color-text-muted)' }}>&mdash;</span>
+                        )}
+                      </td>
+                      <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-muted)' }}>
+                        {f.mapsPlayed != null ? f.mapsPlayed : (
+                          <span>&mdash;</span>
                         )}
                       </td>
                     </tr>
