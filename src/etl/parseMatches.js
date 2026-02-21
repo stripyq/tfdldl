@@ -117,7 +117,7 @@ function resolvePlayer(nick, aliasMap, normalizeNick) {
   const rawKey = nick.toLowerCase();
   let entry = aliasMap.get(rawKey);
   if (entry) {
-    return { canonical: entry.canonical, steam_id: String(entry.steam_id), resolved: true };
+    return { canonical: entry.canonical, steam_id: entry.steam_id != null ? String(entry.steam_id) : null, resolved: true };
   }
 
   // 2. Normalize nick (strip clan tags) then casefold
@@ -125,7 +125,7 @@ function resolvePlayer(nick, aliasMap, normalizeNick) {
   if (normalized && normalized !== rawKey) {
     entry = aliasMap.get(normalized);
     if (entry) {
-      return { canonical: entry.canonical, steam_id: String(entry.steam_id), resolved: true };
+      return { canonical: entry.canonical, steam_id: entry.steam_id != null ? String(entry.steam_id) : null, resolved: true };
     }
   }
 

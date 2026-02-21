@@ -19,16 +19,35 @@ function parseRolesRaw(rolesRaw, roleNormalize) {
   const segments = rolesRaw.split(';').map((s) => s.trim()).filter(Boolean);
   const playerRoles = new Map(); // canonical -> [{ role, notes }]
 
+  // Build case-insensitive role_normalize lookup
+  const roleNormLower = {};
+  for (const [k, v] of Object.entries(roleNormalize)) {
+    roleNormLower[k.toLowerCase()] = v;
+  }
+
   for (const segment of segments) {
     const colonIdx = segment.indexOf(':');
-    if (colonIdx === -1) continue;
 
-    let roleToken = segment.slice(0, colonIdx).trim().toLowerCase();
-    const playersStr = segment.slice(colonIdx + 1).trim();
+    let roleToken;
+    let playersStr;
 
-    // Normalize the role token
-    if (roleNormalize[roleToken]) {
-      roleToken = roleNormalize[roleToken];
+    if (colonIdx === -1) {
+      // No colon — handle "modifier player" format (e.g., "eRA zoza", "hRA fo_tbh")
+      const parts = segment.split(/\s+/).filter(Boolean);
+      if (parts.length < 2) continue;
+      const possibleRole = parts[0].toLowerCase();
+      const knownModifiers = ['hra', 'era', 'nmera', 'hmed', 'hm'];
+      if (!knownModifiers.includes(possibleRole) && !roleNormLower[possibleRole]) continue;
+      roleToken = roleNormLower[possibleRole] || possibleRole;
+      playersStr = parts.slice(1).join(', ');
+    } else {
+      roleToken = segment.slice(0, colonIdx).trim().toLowerCase();
+      playersStr = segment.slice(colonIdx + 1).trim();
+
+      // Normalize the role token (case-insensitive)
+      if (roleNormLower[roleToken]) {
+        roleToken = roleNormLower[roleToken];
+      }
     }
 
     // Split players by comma
@@ -181,8 +200,15 @@ export function linkUnlinkedRoles(manualRoles, matches) {
       entry.match_id = scoreMatches[0].match_id;
       if (!entry.wb_side) {
         const m = scoreMatches[0];
-        entry.wb_side =
-          m.score_red === scoreWb && m.score_blue === scoreOpp ? 'red' : 'blue';
+        if (scoreWb === scoreOpp) {
+          // Draw: can't determine side from scores alone — leave wb_side unset
+          console.warn(
+            `[linkUnlinkedRoles] Draw ${scoreWb}-${scoreOpp} on ${entry.date_local} ${entry.map}: cannot auto-detect wb_side`
+          );
+        } else {
+          entry.wb_side =
+            m.score_red === scoreWb && m.score_blue === scoreOpp ? 'red' : 'blue';
+        }
       }
       linkedCount++;
     } else if (scoreMatches.length === 0) {
@@ -278,6 +304,9 @@ export function mergeRoles(playerRows, roles, normalizeNick, playerRegistry) {
   let duplicateRoles = 0;
   const duplicateRoleExamples = [];
   for (const r of roles) {
+    // Skip entries without match_id — they can't merge into playerRows and would
+    // cause false duplicate collisions on the key "null::playername"
+    if (r.match_id == null) continue;
     const resolvedName = resolveRoleName(r.canonical);
     const key = `${r.match_id}::${resolvedName}`;
     if (roleMap.has(key)) {
