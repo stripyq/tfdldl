@@ -38,6 +38,13 @@ export function resolveTeams(playerRows, matches, playerRegistry, teamConfig) {
       continue;
     }
 
+    // Null/invalid date guard — default to latest era, flag for diagnostics
+    if (!dateLocal) {
+      row.team_membership = entry.team_2026 || entry.team_2024 || 'UNAFFILIATED';
+      row.date_invalid = true;
+      continue;
+    }
+
     const useNew = dateLocal >= scopeDate;
     const team2024 = entry.team_2024 || null;
     const team2026 = entry.team_2026 || null;

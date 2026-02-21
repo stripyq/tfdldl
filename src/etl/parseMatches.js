@@ -5,15 +5,21 @@
 import { buildNickNormalizer } from './normalizeNick.js';
 
 /**
- * Parse "MM:SS" duration string to seconds.
+ * Parse "MM:SS" or "H:MM:SS" duration string to seconds.
+ * Returns NaN for unparseable formats.
  */
 function parseDuration(dur) {
   if (!dur) return 0;
   const parts = dur.split(':');
   if (parts.length === 2) {
-    return parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+    const val = parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+    return isNaN(val) ? NaN : val;
   }
-  return 0;
+  if (parts.length === 3) {
+    const val = parseInt(parts[0], 10) * 3600 + parseInt(parts[1], 10) * 60 + parseInt(parts[2], 10);
+    return isNaN(val) ? NaN : val;
+  }
+  return NaN;
 }
 
 /**
@@ -139,10 +145,15 @@ export function parseMatches(rawMatches, playerRegistry, teamConfig) {
   const matches = [];
   const playerRows = [];
   const unresolvedPlayers = new Set();
+  let durationParseErrors = 0;
 
   for (const raw of rawMatches) {
     const matchId = raw.match_id;
-    const durationSec = parseDuration(raw.duration);
+    let durationSec = parseDuration(raw.duration);
+    if (isNaN(durationSec)) {
+      durationParseErrors++;
+      durationSec = 0;
+    }
     const durationMin = durationSec / 60;
     const [scoreRed, scoreBlue] = parseScores(raw.scores);
     const { datetime_local, date_local } = toLocal(raw.played_at);
@@ -239,5 +250,5 @@ export function parseMatches(rawMatches, playerRegistry, teamConfig) {
     }
   }
 
-  return { matches, playerRows, unresolvedPlayers };
+  return { matches, playerRows, unresolvedPlayers, durationParseErrors };
 }

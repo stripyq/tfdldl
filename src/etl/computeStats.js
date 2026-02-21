@@ -112,14 +112,26 @@ function buildTeamMatchRows(matches, playerRows) {
 
 /**
  * Compute pair synergy stats for the focus team.
+ * @param {Array} teamMatchRows
+ * @param {string} focusTeam
+ * @param {Array} playerRows - needed to look up per-player net_damage
  */
-function buildPairStats(teamMatchRows, focusTeam) {
+export function buildPairStats(teamMatchRows, focusTeam, playerRows) {
   const pairMap = new Map();
+
+  // Build playerRow index: match_id::side → Map<canonical, playerRow>
+  const playerIndex = new Map();
+  for (const p of playerRows) {
+    const key = `${p.match_id}::${p.side}`;
+    if (!playerIndex.has(key)) playerIndex.set(key, new Map());
+    playerIndex.get(key).set(p.canonical, p);
+  }
 
   const focusRows = teamMatchRows.filter((r) => r.team_name === focusTeam);
 
   for (const row of focusRows) {
     const names = row.player_names;
+    const sidePlayers = playerIndex.get(`${row.match_id}::${row.side}`);
     // Generate all 2-player combinations
     for (let i = 0; i < names.length; i++) {
       for (let j = i + 1; j < names.length; j++) {
@@ -139,7 +151,10 @@ function buildPairStats(teamMatchRows, focusTeam) {
         pair.games++;
         if (row.result === 'W') pair.wins++;
         if (row.result === 'L') pair.losses++;
-        pair.total_net_damage += row.avg_net_damage;
+        // Sum the two specific players' net_damage (not team average)
+        const p1 = sidePlayers?.get(names[i]);
+        const p2 = sidePlayers?.get(names[j]);
+        pair.total_net_damage += (p1?.net_damage || 0) + (p2?.net_damage || 0);
         pair.maps_played.add(row.map);
       }
     }
@@ -166,7 +181,7 @@ function buildPairStats(teamMatchRows, focusTeam) {
 /**
  * Compute lineup stats for the focus team.
  */
-function buildLineupStats(teamMatchRows, focusTeam) {
+export function buildLineupStats(teamMatchRows, focusTeam) {
   const lineupMap = new Map();
 
   const focusRows = teamMatchRows.filter((r) => r.team_name === focusTeam);
@@ -232,23 +247,17 @@ function buildLineupStats(teamMatchRows, focusTeam) {
 
 /**
  * Main compute function.
+ * Pair and lineup stats are computed separately after scope filtering (see index.js).
  * @param {Array} matches
  * @param {Array} playerRows
- * @param {Object} teamConfig
- * @returns {{ teamMatchRows, pairStats, lineupStats }}
+ * @returns {{ teamMatchRows }}
  */
-export function computeStats(matches, playerRows, teamConfig) {
+export function computeStats(matches, playerRows) {
   // 1. Per-player derived stats
   computePlayerStats(playerRows, matches);
 
   // 2. Team match rows
   const teamMatchRows = buildTeamMatchRows(matches, playerRows);
 
-  // 3. Pair stats for focus team
-  const pairStats = buildPairStats(teamMatchRows, teamConfig.focus_team);
-
-  // 4. Lineup stats for focus team
-  const lineupStats = buildLineupStats(teamMatchRows, teamConfig.focus_team);
-
-  return { teamMatchRows, pairStats, lineupStats };
+  return { teamMatchRows };
 }

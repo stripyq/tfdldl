@@ -10,11 +10,11 @@ import InfoTip from '../components/InfoTip.jsx';
 import { getStatColor } from '../utils/getStatColor.js';
 
 export default function Overview({ data, onNavigateMatchLog, matchNotes }) {
-  const { teamMatchRows } = data;
+  const { teamMatchRows, focusTeam } = data;
 
   // Focus team rows with loose qualification
   const focusRows = teamMatchRows.filter(
-    (r) => r.team_name === 'wAnnaBees' && r.qualifies_loose
+    (r) => r.team_name === focusTeam && r.qualifies_loose
   );
 
   const wins = focusRows.filter((r) => r.result === 'W').length;
@@ -173,7 +173,7 @@ export default function Overview({ data, onNavigateMatchLog, matchNotes }) {
           className="text-2xl font-bold"
           style={{ color: 'var(--color-accent)' }}
         >
-          wAnnaBees Overview
+          {focusTeam} Overview
         </h2>
         <ExportButton data={focusRows} filename="wb_team_matches.csv" />
       </div>
