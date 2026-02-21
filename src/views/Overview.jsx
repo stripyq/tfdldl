@@ -22,7 +22,7 @@ function ratioColor(flagsFor, flagsAgainst) {
   return 'var(--color-loss)';
 }
 
-export default function Overview({ data, onNavigateMatchLog, matchNotes, leagueConfig }) {
+export default function Overview({ data, onNavigateMatchLog, onNavigateOpponent, matchNotes, leagueConfig }) {
   const { teamMatchRows, focusTeam } = data;
 
   // Focus team rows with loose qualification
@@ -267,6 +267,50 @@ export default function Overview({ data, onNavigateMatchLog, matchNotes, leagueC
     };
   }, [focusRows]);
 
+  // --- League schedule ---
+  const scheduleData = useMemo(() => {
+    if (!leagueConfig?.schedule) return null;
+    const schedule = leagueConfig.schedule;
+    const today = new Date().toISOString().slice(0, 10);
+
+    // All fixtures involving the focus team
+    const myFixtures = schedule.filter(
+      (f) => f.team_a === focusTeam || f.team_b === focusTeam
+    );
+    if (myFixtures.length === 0) return null;
+
+    // Set of opponents that appear in our match data
+    const knownOpponents = new Set();
+    for (const r of teamMatchRows) {
+      if (r.team_name !== focusTeam) knownOpponents.add(r.team_name);
+    }
+
+    // Build fixture rows with result lookup from seriesData
+    const fixtureRows = myFixtures.map((f) => {
+      const opponent = f.team_a === focusTeam ? f.team_b : f.team_a;
+      const hasData = knownOpponents.has(opponent);
+      const isPast = f.date <= today;
+
+      // Try to find a series result for this opponent on/near this date
+      let result = null;
+      if (seriesData?.allSeries) {
+        const matchingSeries = seriesData.allSeries.filter(
+          (s) => s.opponent === opponent && s.date === f.date
+        );
+        if (matchingSeries.length === 1 && matchingSeries[0].quality === 'OK') {
+          result = matchingSeries[0].outcome;
+        }
+      }
+
+      return { round: f.round, date: f.date, opponent, hasData, isPast, result };
+    });
+
+    // Find next match (first future fixture)
+    const nextMatch = fixtureRows.find((f) => !f.isPast) || null;
+
+    return { fixtureRows, nextMatch };
+  }, [leagueConfig, focusTeam, teamMatchRows, seriesData]);
+
   return (
     <div className="p-6 max-w-4xl mx-auto">
       <div className="flex items-center justify-between mb-6">
@@ -282,6 +326,130 @@ export default function Overview({ data, onNavigateMatchLog, matchNotes, leagueC
       <p className="text-sm mb-6" style={{ color: 'var(--color-text-muted)' }}>
         Loose dataset ({total} games) &middot; {dateRange}
       </p>
+
+      {/* Upcoming / League Schedule */}
+      {scheduleData && (
+        <div
+          className="rounded-lg p-6 mb-6"
+          style={{ backgroundColor: 'var(--color-surface)', borderLeft: '3px solid var(--color-accent)' }}
+        >
+          <p className="text-xs uppercase tracking-wide mb-4 font-semibold" style={{ color: 'var(--color-text-muted)' }}>
+            Upcoming {leagueConfig?.league_name ? `\u00B7 ${leagueConfig.league_name}` : ''}
+          </p>
+
+          {/* Next match highlight */}
+          {scheduleData.nextMatch && (
+            <div className="mb-4">
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className="text-lg font-bold">
+                  R{scheduleData.nextMatch.round}: vs {scheduleData.nextMatch.opponent}
+                </span>
+                <span className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
+                  {scheduleData.nextMatch.date}
+                </span>
+                {scheduleData.nextMatch.hasData ? (
+                  <span
+                    className="text-[10px] font-semibold px-2 py-0.5 rounded"
+                    style={{ backgroundColor: 'rgba(34, 197, 94, 0.15)', color: 'var(--color-win)' }}
+                  >
+                    Data available
+                  </span>
+                ) : (
+                  <span
+                    className="text-[10px] font-semibold px-2 py-0.5 rounded"
+                    style={{ backgroundColor: 'rgba(249, 115, 22, 0.15)', color: 'rgb(249, 115, 22)' }}
+                  >
+                    No data yet
+                  </span>
+                )}
+              </div>
+
+              {/* Quick links */}
+              <div className="flex gap-3 mt-2">
+                <button
+                  onClick={() => onNavigateOpponent?.('opponents', scheduleData.nextMatch.opponent)}
+                  className="text-xs px-3 py-1 rounded cursor-pointer"
+                  style={{ backgroundColor: 'var(--color-bg)', color: 'var(--color-accent)', border: '1px solid var(--color-border)' }}
+                >
+                  Draft Helper &rarr;
+                </button>
+                <button
+                  onClick={() => onNavigateOpponent?.('scouting', scheduleData.nextMatch.opponent)}
+                  className="text-xs px-3 py-1 rounded cursor-pointer"
+                  style={{ backgroundColor: 'var(--color-bg)', color: 'var(--color-accent)', border: '1px solid var(--color-border)' }}
+                >
+                  Opp. Teams &rarr;
+                </button>
+                <button
+                  onClick={() => onNavigateOpponent?.('opp-players', scheduleData.nextMatch.opponent)}
+                  className="text-xs px-3 py-1 rounded cursor-pointer"
+                  style={{ backgroundColor: 'var(--color-bg)', color: 'var(--color-accent)', border: '1px solid var(--color-border)' }}
+                >
+                  Opp. Players &rarr;
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Full season schedule */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr>
+                  {['Round', 'Date', 'Opponent', 'Data', 'Result'].map((h) => (
+                    <th
+                      key={h}
+                      className="text-left pb-2 border-b font-medium"
+                      style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-muted)' }}
+                    >
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {scheduleData.fixtureRows.map((f) => {
+                  const isNext = scheduleData.nextMatch && f.round === scheduleData.nextMatch.round && f.opponent === scheduleData.nextMatch.opponent;
+                  return (
+                    <tr
+                      key={`${f.round}-${f.opponent}`}
+                      style={{ backgroundColor: isNext ? 'var(--color-surface-hover)' : undefined }}
+                    >
+                      <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)' }}>
+                        R{f.round}
+                      </td>
+                      <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)' }}>
+                        {f.date}
+                      </td>
+                      <td className="py-1.5 border-b font-medium" style={{ borderColor: 'var(--color-border)' }}>
+                        {f.opponent}
+                      </td>
+                      <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)' }}>
+                        {f.hasData ? (
+                          <span style={{ color: 'var(--color-win)' }}>Yes</span>
+                        ) : (
+                          <span style={{ color: 'var(--color-text-muted)' }}>&mdash;</span>
+                        )}
+                      </td>
+                      <td className="py-1.5 border-b font-medium" style={{ borderColor: 'var(--color-border)' }}>
+                        {f.result ? (
+                          <span style={{ color: f.result.startsWith('2') ? 'var(--color-win)' : 'var(--color-loss)' }}>
+                            {f.result}
+                          </span>
+                        ) : f.isPast ? (
+                          <span style={{ color: 'var(--color-text-muted)' }}>TBD</span>
+                        ) : (
+                          <span style={{ color: 'var(--color-text-muted)' }}>&mdash;</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Record hero card */}
       <div
