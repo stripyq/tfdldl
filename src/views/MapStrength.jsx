@@ -45,6 +45,8 @@ export default function MapStrength({ data, onNavigateMatchLog, matchNotes }) {
           durations: [],
           flagsFor: 0,
           flagsAgainst: 0,
+          dpmCount: 0,
+          durCount: 0,
         };
       }
       const m = mapMap[r.map];
@@ -53,21 +55,21 @@ export default function MapStrength({ data, onNavigateMatchLog, matchNotes }) {
       if (r.result === 'L') m.losses++;
       m.totalCapDiff += r.cap_diff;
       m.totalNetDmg += r.avg_net_damage;
-      m.totalDpm += r.avg_dpm;
+      if (r.avg_dpm != null) { m.totalDpm += r.avg_dpm; m.dpmCount++; }
       m.totalHhi += r.damage_hhi;
-      m.totalDuration += r.duration_min;
+      if (r.duration_min != null) { m.totalDuration += r.duration_min; m.durCount++; }
       m.totalCaps += r.score_for + r.score_against;
       m.flagsFor += r.score_for;
       m.flagsAgainst += r.score_against;
       if (Math.abs(r.cap_diff) >= 3) m.blowouts++;
       if (Math.abs(r.cap_diff) <= 1 && r.result !== 'D') m.closeGames++;
-      m.durations.push({ dur: r.duration_min, result: r.result });
+      if (r.duration_min != null) m.durations.push({ dur: r.duration_min, result: r.result });
     }
 
     return Object.values(mapMap)
       .filter((m) => m.games >= MIN_GAMES)
       .map((m) => {
-        const avgDuration = m.games > 0 ? m.totalDuration / m.games : 0;
+        const avgDuration = m.durCount > 0 ? m.totalDuration / m.durCount : 0;
         // Split at map's median duration for fast/slow comparison
         const sortedDur = [...m.durations].sort((a, b) => a.dur - b.dur);
         const medianDur = sortedDur.length > 0 ? sortedDur[Math.floor(sortedDur.length / 2)].dur : 0;
@@ -86,7 +88,7 @@ export default function MapStrength({ data, onNavigateMatchLog, matchNotes }) {
           winPct: m.games > 0 ? (m.wins / m.games) * 100 : 0,
           avgCapDiff: m.games > 0 ? m.totalCapDiff / m.games : 0,
           avgNetDmg: m.games > 0 ? m.totalNetDmg / m.games : 0,
-          avgDpm: m.games > 0 ? m.totalDpm / m.games : 0,
+          avgDpm: m.dpmCount > 0 ? m.totalDpm / m.dpmCount : 0,
           avgHhi: m.games > 0 ? m.totalHhi / m.games : 0,
           avgDuration,
           flagsFor: m.flagsFor,

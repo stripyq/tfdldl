@@ -78,6 +78,7 @@ function toLocal(utcStr) {
  */
 function buildAliasMap(registry, normalizeNick) {
   const map = new Map();
+  let aliasCollisions = 0;
   for (const entry of registry) {
     const canonical = entry.canonical;
 
@@ -86,15 +87,22 @@ function buildAliasMap(registry, normalizeNick) {
     const normalizedCanonical = normalizeNick(canonical).toLowerCase();
     if (normalizedCanonical && !map.has(normalizedCanonical)) {
       map.set(normalizedCanonical, entry);
+    } else if (normalizedCanonical && map.get(normalizedCanonical)?.canonical !== canonical) {
+      aliasCollisions++;
     }
 
     // Index by each alias (raw casefolded and normalized casefolded)
     if (entry.aliases) {
       for (const alias of entry.aliases) {
+        if (map.has(alias.toLowerCase()) && map.get(alias.toLowerCase())?.canonical !== canonical) {
+          aliasCollisions++;
+        }
         map.set(alias.toLowerCase(), entry);
         const normalizedAlias = normalizeNick(alias).toLowerCase();
         if (normalizedAlias && !map.has(normalizedAlias)) {
           map.set(normalizedAlias, entry);
+        } else if (normalizedAlias && map.get(normalizedAlias)?.canonical !== canonical) {
+          aliasCollisions++;
         }
       }
     }
@@ -104,7 +112,7 @@ function buildAliasMap(registry, normalizeNick) {
       map.set(String(entry.steam_id), entry);
     }
   }
-  return map;
+  return { map, aliasCollisions };
 }
 
 /**
@@ -142,7 +150,7 @@ function resolvePlayer(nick, aliasMap, normalizeNick) {
  */
 export function parseMatches(rawMatches, playerRegistry, teamConfig) {
   const normalizeNick = buildNickNormalizer(teamConfig.clan_tag_patterns);
-  const aliasMap = buildAliasMap(playerRegistry, normalizeNick);
+  const { map: aliasMap, aliasCollisions } = buildAliasMap(playerRegistry, normalizeNick);
   const matches = [];
   const playerRows = [];
   const unresolvedPlayers = new Set();
@@ -250,5 +258,5 @@ export function parseMatches(rawMatches, playerRegistry, teamConfig) {
     }
   }
 
-  return { matches, playerRows, unresolvedPlayers, durationParseErrors };
+  return { matches, playerRows, unresolvedPlayers, durationParseErrors, aliasCollisions };
 }

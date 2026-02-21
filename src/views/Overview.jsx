@@ -37,8 +37,9 @@ export default function Overview({ data, onNavigateMatchLog, onNavigateOpponent,
   const total = focusRows.length;
   const winPct = total > 0 ? (wins / total) * 100 : 0;
 
-  const avgDpm = total > 0
-    ? focusRows.reduce((s, r) => s + r.avg_dpm, 0) / total
+  const dpmRows = focusRows.filter((r) => r.avg_dpm != null);
+  const avgDpm = dpmRows.length > 0
+    ? dpmRows.reduce((s, r) => s + r.avg_dpm, 0) / dpmRows.length
     : 0;
   const avgCapDiff = total > 0
     ? focusRows.reduce((s, r) => s + r.cap_diff, 0) / total
@@ -98,14 +99,17 @@ export default function Overview({ data, onNavigateMatchLog, onNavigateOpponent,
     .sort((a, b) => b.total - a.total);
 
   // --- Tempo identity stats ---
-  const avgDuration = total > 0
-    ? focusRows.reduce((s, r) => s + r.duration_min, 0) / total : 0;
+  const durRows = focusRows.filter((r) => r.duration_min != null);
+  const avgDuration = durRows.length > 0
+    ? durRows.reduce((s, r) => s + r.duration_min, 0) / durRows.length : 0;
   const winRows = focusRows.filter((r) => r.result === 'W');
   const lossRows = focusRows.filter((r) => r.result === 'L');
-  const avgDurWin = winRows.length > 0
-    ? winRows.reduce((s, r) => s + r.duration_min, 0) / winRows.length : 0;
-  const avgDurLoss = lossRows.length > 0
-    ? lossRows.reduce((s, r) => s + r.duration_min, 0) / lossRows.length : 0;
+  const winDurRows = winRows.filter((r) => r.duration_min != null);
+  const lossDurRows = lossRows.filter((r) => r.duration_min != null);
+  const avgDurWin = winDurRows.length > 0
+    ? winDurRows.reduce((s, r) => s + r.duration_min, 0) / winDurRows.length : 0;
+  const avgDurLoss = lossDurRows.length > 0
+    ? lossDurRows.reduce((s, r) => s + r.duration_min, 0) / lossDurRows.length : 0;
 
   const blowoutWinRows = focusRows.filter((r) => r.result === 'W' && r.cap_diff >= 3);
   const blowoutLossRows = focusRows.filter((r) => r.result === 'L' && r.cap_diff <= -3);
@@ -282,7 +286,7 @@ export default function Overview({ data, onNavigateMatchLog, onNavigateOpponent,
     // Set of opponents that appear in our match data
     const knownOpponents = new Set();
     for (const r of teamMatchRows) {
-      if (r.team_name !== focusTeam) knownOpponents.add(r.team_name);
+      if (r.team_name === focusTeam && r.opponent_team) knownOpponents.add(r.opponent_team);
     }
 
     // Build fixture rows with result lookup from seriesData
@@ -297,6 +301,7 @@ export default function Overview({ data, onNavigateMatchLog, onNavigateOpponent,
       if (seriesData?.allSeries) {
         const matchingSeries = seriesData.allSeries.filter(
           (s) => s.opponent === opponent && s.date >= f.date_start && s.date <= (f.date_end || f.date_start)
+            && s.maps.some((m) => m.qualifies_strict || m.qualifies_h2h)
         );
         if (matchingSeries.length === 1 && matchingSeries[0].quality === 'OK') {
           result = matchingSeries[0].outcome;

@@ -113,10 +113,11 @@ export default function OpponentScouting({ data, initialOpponent }) {
   const avgStats = useMemo(() => {
     if (oppRows.length === 0) return { avgHhi: 0, avgDpm: 0 };
     const totalHhi = oppRows.reduce((s, r) => s + r.damage_hhi, 0);
-    const totalDpm = oppRows.reduce((s, r) => s + r.avg_dpm, 0);
+    const dpmRows = oppRows.filter((r) => r.avg_dpm != null);
+    const totalDpm = dpmRows.reduce((s, r) => s + r.avg_dpm, 0);
     return {
       avgHhi: totalHhi / oppRows.length,
-      avgDpm: totalDpm / oppRows.length,
+      avgDpm: dpmRows.length > 0 ? totalDpm / dpmRows.length : 0,
     };
   }, [oppRows]);
 

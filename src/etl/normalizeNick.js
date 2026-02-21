@@ -16,8 +16,15 @@ export function buildNickNormalizer(patterns) {
     return (nick) => nick;
   }
 
-  // Pre-compile the regexes
-  const compiled = patterns.map((p) => new RegExp(p, 'i'));
+  // Pre-compile the regexes (skip invalid patterns)
+  const compiled = [];
+  for (const p of patterns) {
+    try {
+      compiled.push(new RegExp(p, 'i'));
+    } catch {
+      console.warn(`[normalizeNick] Invalid regex pattern skipped: "${p}"`);
+    }
+  }
 
   return function normalizeNick(nick) {
     let result = nick;
