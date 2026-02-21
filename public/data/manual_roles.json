@@ -1,5 +1,27 @@
 [
   {
+    "date_local": "2026-02-15",
+    "opponent": "Aimdead Brainers",
+    "session": "league",
+    "map": "troubledwaters",
+    "score_wb": "4",
+    "score_opp": "3",
+    "roles_raw": "def: zozo (rigid rotation); off: kirson, jcb; mid: lihensior; def: supremee; mid: pengelephant; off: ins, enesy",
+    "match_id": "manual-2026-02-15-tw-wb-ab",
+    "wb_side": "red"
+  },
+  {
+    "date_local": "2026-02-15",
+    "opponent": "Aimdead Brainers",
+    "session": "league",
+    "map": "japanesecastles",
+    "score_wb": "7",
+    "score_opp": "2",
+    "roles_raw": "def: fo_tbh (dynamic rotation); off: kirson, lihensior, jcb; def: supremee (dynamic rotation); mid: pengelephant; off: ins, enesy",
+    "match_id": "manual-2026-02-15-japan-wb-ab",
+    "wb_side": "red"
+  },
+  {
     "date_local": "2026-01-21",
     "opponent": "Le Cubanitos",
     "session": "praccy",
