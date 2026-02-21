@@ -426,7 +426,7 @@ function PlayerCard({ name, playerRows, teamMatchRows, matchMap, onNavigateMatch
                   }}
                 >
                   {m.winPct.toFixed(0)}%
-                  {m.games < 3 && <span className="sample-warn" title="Small sample size">{'\u26A0'}</span>}
+                  {m.games < 3 && <span className="sample-warn" title={`Low sample size: only ${m.games} game${m.games !== 1 ? 's' : ''}. Patterns may not be reliable.`}>{'\u26A0'}</span>}
                 </td>
                 <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)', color: getStatColor(m.avgDpm, 'dpm') }}>
                   {m.avgDpm.toFixed(0)}

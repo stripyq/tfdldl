@@ -320,7 +320,7 @@ function PlayerRow({ p, isExpanded, onToggle, onNavigateMatchLog }) {
       >
         <td className="py-1.5 border-b font-semibold" style={{ borderColor: 'var(--color-border)' }}>
           {p.player}
-          {lowSample && <SampleBadge games={p.games} threshold={5} />}
+          {lowSample && <SampleBadge games={p.games} />}
         </td>
         <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)' }}>
           {p.games}
@@ -348,7 +348,7 @@ function PlayerRow({ p, isExpanded, onToggle, onNavigateMatchLog }) {
           color: p.carryIndex > 3 ? 'var(--color-accent)' : p.carryIndex < -3 ? 'var(--color-text-muted)' : undefined,
         }}>
           {p.carryIndex >= 0 ? '+' : ''}{p.carryIndex.toFixed(1)}
-          {p.carryIndex > 5 && <span className="ml-1 text-[10px]" title="High carry dependency">{'\u26A0'}</span>}
+          {p.carryIndex > 5 && <span className="ml-1 text-[10px]" title="High carry dependency — this player does a disproportionate share of team damage">{'\u26A0'}</span>}
         </td>
         <td className="py-1.5 border-b text-xs" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-muted)' }}>
           RL {p.avgRl.toFixed(0)} RG {p.avgRg.toFixed(0)} SG {p.avgSg.toFixed(0)} LG {p.avgLg.toFixed(0)}
@@ -391,7 +391,7 @@ function PlayerRow({ p, isExpanded, onToggle, onNavigateMatchLog }) {
                       <tr key={m.map}>
                         <td className="py-0.5">
                           {m.map}
-                          {m.games < 3 && <SampleBadge games={m.games} threshold={3} />}
+                          {m.games < 3 && <SampleBadge games={m.games} />}
                         </td>
                         <td className="py-0.5">
                           <span
@@ -448,7 +448,7 @@ function WeaponBar({ label, pct, color }) {
   );
 }
 
-function SampleBadge({ games, threshold }) {
+function SampleBadge({ games }) {
   return (
     <span
       className="ml-1.5 text-[10px] px-1 py-px rounded"
@@ -456,7 +456,7 @@ function SampleBadge({ games, threshold }) {
         backgroundColor: 'rgba(249, 115, 22, 0.15)',
         color: 'rgb(249, 115, 22)',
       }}
-      title={`Low sample: ${games} game${games !== 1 ? 's' : ''} (min ${threshold})`}
+      title={`Low sample size: only ${games} game${games !== 1 ? 's' : ''}. Patterns may not be reliable.`}
     >
       {'\u26A0'} {games}g
     </span>

@@ -428,7 +428,7 @@ export default function RoleAnalysis({ data }) {
                 >
                   {c.winPct.toFixed(0)}%
                   {c.winFlag && (
-                    <span className="ml-1 text-[10px]" title={`${c.winDelta.toFixed(0)}pp vs overall`}>
+                    <span className="ml-1 text-[10px]" title={`Win rate ${c.winDelta.toFixed(0)}pp vs overall — underperforming in this role`}>
                       {'\u26A0'}
                     </span>
                   )}
@@ -442,7 +442,7 @@ export default function RoleAnalysis({ data }) {
                 >
                   {c.avgDpm.toFixed(0)}
                   {c.dpmFlag && (
-                    <span className="ml-1 text-[10px]" title={`${c.dpmDelta.toFixed(0)}% vs overall`}>
+                    <span className="ml-1 text-[10px]" title={`DPM ${c.dpmDelta.toFixed(0)}% vs overall — lower output in this role`}>
                       {'\u26A0'}
                     </span>
                   )}
@@ -536,7 +536,7 @@ export default function RoleAnalysis({ data }) {
                       {s.swapWinPct.toFixed(0)}% ({s.swapGames}g)
                       {s.swapGames < 3 && (
                         <span className="ml-1 text-[10px] px-1 py-px rounded" style={{ backgroundColor: 'rgba(249, 115, 22, 0.15)', color: 'rgb(249, 115, 22)' }}
-                          title="Low sample">{'\u26A0'}</span>
+                          title={`Low sample size: only ${s.swapGames} game${s.swapGames !== 1 ? 's' : ''}. Patterns may not be reliable.`}>{'\u26A0'}</span>
                       )}
                     </td>
                     <td className="py-1.5 border-b font-semibold" style={{
@@ -666,7 +666,7 @@ function RoleMapRow({ role, maps, totalGames, isExpanded, onToggle }) {
                         {m.games < 3 && (
                           <span className="ml-1 text-[10px] px-1 py-px rounded"
                             style={{ backgroundColor: 'rgba(249, 115, 22, 0.15)', color: 'rgb(249, 115, 22)' }}
-                            title="Low sample">{'\u26A0'}</span>
+                            title={`Low sample size: only ${m.games} game${m.games !== 1 ? 's' : ''}. Patterns may not be reliable.`}>{'\u26A0'}</span>
                         )}
                       </td>
                       <td className="py-0.5">{m.games}</td>
