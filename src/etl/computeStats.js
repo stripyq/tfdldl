@@ -44,11 +44,11 @@ function buildTeamMatchRows(matches, playerRows) {
 
   for (const match of matches) {
     const sides = [
-      { side: 'red', team: match.team_red, opponentTeam: match.team_blue },
-      { side: 'blue', team: match.team_blue, opponentTeam: match.team_red },
+      { side: 'red', team: match.team_red, opponentTeam: match.team_blue, oppSide: 'blue' },
+      { side: 'blue', team: match.team_blue, opponentTeam: match.team_red, oppSide: 'red' },
     ];
 
-    for (const { side, team, opponentTeam } of sides) {
+    for (const { side, team, opponentTeam, oppSide } of sides) {
       if (!team || team === 'MIX') continue;
 
       const players = matchSideMap.get(`${match.match_id}::${side}`) || [];
@@ -80,6 +80,12 @@ function buildTeamMatchRows(matches, playerRows) {
       const playerNames = players.map((p) => p.canonical).sort();
       const lineupKey = playerNames.join('+');
 
+      // Opponent lineup key from the other side's players
+      const oppPlayers = matchSideMap.get(`${match.match_id}::${oppSide}`) || [];
+      const oppLineupKey = oppPlayers.length > 0
+        ? oppPlayers.map((p) => p.canonical).sort().join('+')
+        : null;
+
       teamMatchRows.push({
         match_id: match.match_id,
         team_name: team,
@@ -102,6 +108,7 @@ function buildTeamMatchRows(matches, playerRows) {
         damage_hhi: damageHhi,
         player_names: playerNames,
         lineup_key: lineupKey,
+        opponent_lineup_key: oppLineupKey,
         duration_min: match.duration_min,
         qualifies_loose: match.qualifies_loose,
         qualifies_strict: match.qualifies_strict,

@@ -31,22 +31,49 @@ export default function DraftHelper({ data }) {
   }, [focusRows]);
 
   const [selectedOpp, setSelectedOpp] = useState('');
-  const [selectedLineup, setSelectedLineup] = useState('');
+  const [selectedOurLineup, setSelectedOurLineup] = useState('');
+  const [selectedTheirLineup, setSelectedTheirLineup] = useState('');
 
-  // Available lineups for selector (min 2 games)
-  const lineupOptions = useMemo(() => {
+  // Available focus team lineups for "Our Lineup" selector (min 2 games)
+  const ourLineupOptions = useMemo(() => {
     if (!lineupStats) return [];
     return lineupStats
       .filter((l) => l.games >= 2)
       .sort((a, b) => b.games - a.games);
   }, [lineupStats]);
 
-  // Per-map stats for selected lineup
-  const lineupMapStats = useMemo(() => {
-    if (!selectedLineup) return {};
+  // Available opponent lineups for "Their Lineup" selector (min 2 games, scoped to selected opponent)
+  const theirLineupOptions = useMemo(() => {
+    if (!selectedOpp) return [];
+    const counts = {};
+    for (const r of focusRows) {
+      if (r.opponent_team !== selectedOpp) continue;
+      const key = r.opponent_lineup_key;
+      if (!key) continue;
+      if (!counts[key]) counts[key] = { lineup_key: key, games: 0, player_names: null };
+      counts[key].games++;
+      if (!counts[key].player_names) counts[key].player_names = key.split('+');
+    }
+    return Object.values(counts)
+      .filter((l) => l.games >= 2)
+      .sort((a, b) => b.games - a.games);
+  }, [focusRows, selectedOpp]);
+
+  // Reset their lineup when opponent changes
+  const prevOppRef = { current: selectedOpp };
+  useMemo(() => {
+    if (prevOppRef.current !== selectedOpp) {
+      setSelectedTheirLineup('');
+    }
+    prevOppRef.current = selectedOpp;
+  }, [selectedOpp]);
+
+  // Per-map stats for selected "Our Lineup"
+  const ourLineupMapStats = useMemo(() => {
+    if (!selectedOurLineup) return {};
     const stats = {};
     for (const r of focusRows) {
-      if (r.lineup_key !== selectedLineup) continue;
+      if (r.lineup_key !== selectedOurLineup) continue;
       if (!stats[r.map]) stats[r.map] = { games: 0, wins: 0, losses: 0 };
       stats[r.map].games++;
       if (r.result === 'W') stats[r.map].wins++;
@@ -56,7 +83,7 @@ export default function DraftHelper({ data }) {
       s.winPct = s.games > 0 ? (s.wins / s.games) * 100 : 0;
     }
     return stats;
-  }, [focusRows, selectedLineup]);
+  }, [focusRows, selectedOurLineup]);
 
   // Global map stats (all opponents)
   const globalMapStats = useMemo(() => {
@@ -73,12 +100,13 @@ export default function DraftHelper({ data }) {
     return stats;
   }, [focusRows]);
 
-  // H2H map stats against selected opponent
+  // H2H map stats against selected opponent (optionally filtered by their lineup)
   const h2hMapStats = useMemo(() => {
     if (!selectedOpp) return {};
     const stats = {};
     for (const r of focusRows) {
       if (r.opponent_team !== selectedOpp) continue;
+      if (selectedTheirLineup && r.opponent_lineup_key !== selectedTheirLineup) continue;
       if (!stats[r.map]) stats[r.map] = { games: 0, wins: 0, losses: 0 };
       stats[r.map].games++;
       if (r.result === 'W') stats[r.map].wins++;
@@ -88,7 +116,7 @@ export default function DraftHelper({ data }) {
       s.winPct = s.games > 0 ? (s.wins / s.games) * 100 : 0;
     }
     return stats;
-  }, [focusRows, selectedOpp]);
+  }, [focusRows, selectedOpp, selectedTheirLineup]);
 
   // Opponent's global map stats (from ALL their matches, not just vs us)
   const oppGlobalMapStats = useMemo(() => {
@@ -226,17 +254,18 @@ export default function DraftHelper({ data }) {
 
   // Export data (after recLabel defined so compiler can inline)
   const exportData = tableRows.map((r) => {
-    const lu = lineupMapStats[r.map];
+    const lu = ourLineupMapStats[r.map];
     return {
     map: r.map,
     wb_global_win_pct: r.global.winPct.toFixed(1),
     wb_global_record: `${r.global.wins}W-${r.global.losses}L`,
-    ...(selectedLineup ? {
-      lineup_win_pct: lu?.games >= 2 ? lu.winPct.toFixed(1) : '',
-      lineup_record: lu?.games >= 2 ? `${lu.wins}W-${lu.losses}L` : '',
+    ...(selectedOurLineup ? {
+      our_lineup_win_pct: lu?.games >= 2 ? lu.winPct.toFixed(1) : '',
+      our_lineup_record: lu?.games >= 2 ? `${lu.wins}W-${lu.losses}L` : '',
     } : {}),
     wb_vs_opp_win_pct: r.h2hWinPct !== null ? r.h2hWinPct.toFixed(1) : '',
     wb_vs_opp_record: r.h2h ? `${r.h2h.wins}W-${r.h2h.losses}L` : '',
+    ...(selectedTheirLineup ? { their_lineup_filter: selectedTheirLineup } : {}),
     opp_global_win_pct: r.oppGlobal ? r.oppGlobal.winPct.toFixed(1) : '',
     opp_global_record: r.oppGlobal ? `${r.oppGlobal.wins}W-${r.oppGlobal.losses}L` : '',
     recommendation: recLabel(r.rec),
@@ -281,17 +310,17 @@ export default function DraftHelper({ data }) {
             ))}
           </select>
         </div>
-        {lineupOptions.length > 0 && (
+        {ourLineupOptions.length > 0 && (
           <div>
             <label
               className="text-sm block mb-1"
               style={{ color: 'var(--color-text-muted)' }}
             >
-              Lineup Filter
+              Our Lineup
             </label>
             <select
-              value={selectedLineup}
-              onChange={(e) => setSelectedLineup(e.target.value)}
+              value={selectedOurLineup}
+              onChange={(e) => setSelectedOurLineup(e.target.value)}
               className="px-3 py-2 rounded text-sm"
               style={{
                 backgroundColor: 'var(--color-surface)',
@@ -299,8 +328,35 @@ export default function DraftHelper({ data }) {
                 border: '1px solid var(--color-border)',
               }}
             >
-              <option value="">— all lineups —</option>
-              {lineupOptions.map((l) => (
+              <option value="">All lineups</option>
+              {ourLineupOptions.map((l) => (
+                <option key={l.lineup_key} value={l.lineup_key}>
+                  {l.player_names.join(' \u00B7 ')} ({l.games}g)
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+        {selectedOpp && theirLineupOptions.length > 0 && (
+          <div>
+            <label
+              className="text-sm block mb-1"
+              style={{ color: 'var(--color-text-muted)' }}
+            >
+              Their Lineup
+            </label>
+            <select
+              value={selectedTheirLineup}
+              onChange={(e) => setSelectedTheirLineup(e.target.value)}
+              className="px-3 py-2 rounded text-sm"
+              style={{
+                backgroundColor: 'var(--color-surface)',
+                color: 'var(--color-text)',
+                border: '1px solid var(--color-border)',
+              }}
+            >
+              <option value="">All lineups</option>
+              {theirLineupOptions.map((l) => (
                 <option key={l.lineup_key} value={l.lineup_key}>
                   {l.player_names.join(' \u00B7 ')} ({l.games}g)
                 </option>
@@ -373,7 +429,15 @@ export default function DraftHelper({ data }) {
           className="rounded-lg p-4 mb-6 text-sm"
           style={{ backgroundColor: 'var(--color-surface)', color: 'var(--color-text-muted)' }}
         >
-          No head-to-head data vs {selectedOpp}. Recommendations are based on global map strength.
+          No head-to-head data vs {selectedOpp}{selectedTheirLineup ? ' with this lineup filter' : ''}. Recommendations are based on global map strength.
+        </div>
+      )}
+      {selectedOpp && hasH2H && selectedTheirLineup && Object.values(h2hMapStats).reduce((s, m) => s + m.games, 0) < 2 && (
+        <div
+          className="rounded-lg p-4 mb-6 text-sm"
+          style={{ backgroundColor: 'var(--color-surface)', color: 'var(--color-draw, orange)' }}
+        >
+          Low sample: &lt;2 games for this opponent lineup filter. H2H data may not be reliable.
         </div>
       )}
 
@@ -395,7 +459,7 @@ export default function DraftHelper({ data }) {
                 {[
                   'Map',
                   'wB Global W%',
-                  ...(selectedLineup ? ['Lineup W%'] : []),
+                  ...(selectedOurLineup ? ['Our Lineup W%'] : []),
                   ...(selectedOpp ? ['wB vs Opp W%', 'wB vs Opp Record', 'Opp Global W%', 'Opp Global Record', 'Rec'] : ['Games']),
                 ].map((h) => (
                   <th
@@ -428,18 +492,18 @@ export default function DraftHelper({ data }) {
                         ({r.global.wins}-{r.global.losses})
                       </span>
                     </td>
-                    {selectedLineup && (
+                    {selectedOurLineup && (
                       <td
                         className="py-1.5 border-b font-medium"
                         style={{
                           borderColor: 'var(--color-border)',
-                          color: lineupMapStats[r.map]?.games >= 2
-                            ? getStatColor(lineupMapStats[r.map].winPct, 'winPct')
+                          color: ourLineupMapStats[r.map]?.games >= 2
+                            ? getStatColor(ourLineupMapStats[r.map].winPct, 'winPct')
                             : 'var(--color-text-muted)',
                         }}
                       >
-                        {lineupMapStats[r.map]?.games >= 2
-                          ? <>{lineupMapStats[r.map].winPct.toFixed(0)}%<span className="text-xs ml-1" style={{ color: 'var(--color-text-muted)' }}>({lineupMapStats[r.map].wins}-{lineupMapStats[r.map].losses})</span></>
+                        {ourLineupMapStats[r.map]?.games >= 2
+                          ? <>{ourLineupMapStats[r.map].winPct.toFixed(0)}%<span className="text-xs ml-1" style={{ color: 'var(--color-text-muted)' }}>({ourLineupMapStats[r.map].wins}-{ourLineupMapStats[r.map].losses})</span></>
                           : '\u2014'}
                       </td>
                     )}
