@@ -66,15 +66,14 @@ body {
 .infotip-wrap:hover .infotip-icon {
   opacity: 1;
 }
+/* Bubble is portalled to <body> and positioned via JS */
 .infotip-bubble {
-  display: none;
-  position: absolute;
-  bottom: calc(100% + 6px);
-  left: 50%;
-  transform: translateX(-50%);
-  background: var(--color-bg);
-  color: var(--color-text);
-  border: 1px solid var(--color-border);
+  position: fixed;
+  z-index: 9999;
+  transform: translate(-50%, -100%) translateY(-8px);
+  background: #1a1a2e;
+  color: #f1f5f9;
+  border: 1px solid #475569;
   border-radius: 6px;
   padding: 6px 10px;
   font-size: 0.7rem;
@@ -83,12 +82,8 @@ body {
   white-space: normal;
   width: max-content;
   max-width: 260px;
-  z-index: 50;
   pointer-events: none;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.6), 0 0 0 1px rgba(71,85,105,0.3);
   text-transform: none;
   letter-spacing: normal;
-}
-.infotip-wrap:hover .infotip-bubble {
-  display: block;
 }
