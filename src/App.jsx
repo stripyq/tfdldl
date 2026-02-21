@@ -49,6 +49,7 @@ export default function App() {
   const [configs, setConfigs] = useState(null);
   const [activeView, setActiveView] = useState('overview');
   const [matchLogFilters, setMatchLogFilters] = useState(null);
+  const [opponentFilter, setOpponentFilter] = useState(null);
 
   // Match notes: loaded from file + added in-session
   const [loadedNotes, setLoadedNotes] = useState([]);
@@ -109,6 +110,11 @@ export default function App() {
   function navigateToMatchLog(filters) {
     setMatchLogFilters({ ...filters, _ts: Date.now() });
     setActiveView('matches');
+  }
+
+  function navigateToOpponent(viewId, opponent) {
+    setOpponentFilter({ opponent, _ts: Date.now() });
+    setActiveView(viewId);
   }
 
   // Load config files on mount, then try auto-loading default match data
@@ -330,11 +336,11 @@ export default function App() {
 
         {/* Main content */}
         <main className="flex-1 overflow-y-auto">
-          {activeView === 'overview' && <Overview data={data} onNavigateMatchLog={navigateToMatchLog} matchNotes={mergedNotes} leagueConfig={configs?.leagueConfig} />}
+          {activeView === 'overview' && <Overview data={data} onNavigateMatchLog={navigateToMatchLog} onNavigateOpponent={navigateToOpponent} matchNotes={mergedNotes} leagueConfig={configs?.leagueConfig} />}
           {activeView === 'maps' && <MapStrength data={data} onNavigateMatchLog={navigateToMatchLog} matchNotes={mergedNotes} />}
-          {activeView === 'opponents' && <OpponentMatrix data={data} onNavigateMatchLog={navigateToMatchLog} />}
-          {activeView === 'scouting' && <OpponentScouting data={data} />}
-          {activeView === 'opp-players' && <OpponentPlayers data={data} onNavigateMatchLog={navigateToMatchLog} />}
+          {activeView === 'opponents' && <OpponentMatrix data={data} onNavigateMatchLog={navigateToMatchLog} initialOpponent={opponentFilter} key={`opp-${opponentFilter?._ts || 'default'}`} />}
+          {activeView === 'scouting' && <OpponentScouting data={data} initialOpponent={opponentFilter} key={`scout-${opponentFilter?._ts || 'default'}`} />}
+          {activeView === 'opp-players' && <OpponentPlayers data={data} onNavigateMatchLog={navigateToMatchLog} initialOpponent={opponentFilter} key={`opppl-${opponentFilter?._ts || 'default'}`} />}
           {activeView === 'close-games' && <CloseGames data={data} onNavigateMatchLog={navigateToMatchLog} />}
           {activeView === 'lineups' && <Lineups data={data} onNavigateMatchLog={navigateToMatchLog} />}
           {activeView === 'players' && <PlayerCards data={data} onNavigateMatchLog={navigateToMatchLog} matchNotes={mergedNotes} />}

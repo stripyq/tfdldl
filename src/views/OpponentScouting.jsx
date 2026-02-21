@@ -10,7 +10,7 @@ import { getStatColor } from '../utils/getStatColor.js';
 
 const FOCUS = 'wAnnaBees';
 
-export default function OpponentScouting({ data }) {
+export default function OpponentScouting({ data, initialOpponent }) {
   const { teamMatchRows, playerRows } = data;
 
   // All non-focus teams that appear in the data
@@ -25,7 +25,7 @@ export default function OpponentScouting({ data }) {
       .map(([name]) => name);
   }, [teamMatchRows]);
 
-  const [selectedOpp, setSelectedOpp] = useState('');
+  const [selectedOpp, setSelectedOpp] = useState(initialOpponent?.opponent || '');
   const opp = selectedOpp || opponents[0] || '';
 
   // Build set of opponent team members for sub badges

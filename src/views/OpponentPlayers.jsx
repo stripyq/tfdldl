@@ -10,7 +10,7 @@ import { getStatColor } from '../utils/getStatColor.js';
 
 const FOCUS = 'wAnnaBees';
 
-export default function OpponentPlayers({ data, onNavigateMatchLog }) {
+export default function OpponentPlayers({ data, onNavigateMatchLog, initialOpponent }) {
   const { teamMatchRows, playerRows } = data;
 
   // All wB matches (loose)
@@ -151,7 +151,7 @@ export default function OpponentPlayers({ data, onNavigateMatchLog }) {
     return { oppTeamData: byTeam, allTeams };
   }, [wbRows, playersByMatch]);
 
-  const [selectedTeam, setSelectedTeam] = useState('');
+  const [selectedTeam, setSelectedTeam] = useState(initialOpponent?.opponent || '');
   const team = selectedTeam || allTeams[0] || '';
   const teamData = oppTeamData[team];
 

@@ -22,7 +22,7 @@ function ratioColor(f, a) {
   return r >= 1.0 ? 'var(--color-win)' : 'var(--color-loss)';
 }
 
-export default function OpponentMatrix({ data, onNavigateMatchLog }) {
+export default function OpponentMatrix({ data, onNavigateMatchLog, initialOpponent }) {
   const { teamMatchRows, focusTeam } = data;
 
   // ── Opponent Matrix (H2H dataset) ──────────────────────────────
@@ -115,7 +115,7 @@ export default function OpponentMatrix({ data, onNavigateMatchLog }) {
       .map(([name]) => name);
   }, [focusRows]);
 
-  const [selectedOpp, setSelectedOpp] = useState('');
+  const [selectedOpp, setSelectedOpp] = useState(initialOpponent?.opponent || '');
 
   const globalMapStats = useMemo(() => {
     const stats = {};
