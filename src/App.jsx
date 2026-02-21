@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import FileUpload from './components/FileUpload.jsx';
 import Overview from './views/Overview.jsx';
 import MapStrength from './views/MapStrength.jsx';
@@ -29,6 +29,40 @@ export default function App() {
   const [activeView, setActiveView] = useState('overview');
   const [matchLogFilters, setMatchLogFilters] = useState(null);
 
+  // Match notes: loaded from file + added in-session
+  const [loadedNotes, setLoadedNotes] = useState([]);
+  const [sessionNotes, setSessionNotes] = useState(new Map());
+
+  // Merged notes: loaded overwritten by session edits, keyed by match_id
+  const mergedNotes = useMemo(() => {
+    const map = new Map();
+    for (const n of loadedNotes) map.set(n.match_id, n);
+    for (const [id, n] of sessionNotes) map.set(id, n);
+    return map;
+  }, [loadedNotes, sessionNotes]);
+
+  const unsavedCount = sessionNotes.size;
+
+  const handleSaveNote = useCallback((note) => {
+    setSessionNotes((prev) => {
+      const next = new Map(prev);
+      next.set(note.match_id, note);
+      return next;
+    });
+  }, []);
+
+  const handleDownloadNotes = useCallback(() => {
+    const allNotes = [...mergedNotes.values()];
+    const json = JSON.stringify(allNotes, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'match_notes.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [mergedNotes]);
+
   function navigateToMatchLog(filters) {
     setMatchLogFilters({ ...filters, _ts: Date.now() });
     setActiveView('matches');
@@ -39,15 +73,18 @@ export default function App() {
     async function loadConfigs() {
       try {
         const base = import.meta.env.BASE_URL;
-        const [registryRes, teamConfigRes, rolesRes] = await Promise.all([
+        const [registryRes, teamConfigRes, rolesRes, notesRes] = await Promise.all([
           fetch(`${base}data/player_registry.json`),
           fetch(`${base}data/team_config.json`),
           fetch(`${base}data/manual_roles.json`),
+          fetch(`${base}data/match_notes.json`),
         ]);
         const playerRegistry = await registryRes.json();
         const teamConfig = await teamConfigRes.json();
         const manualRoles = await rolesRes.json();
+        const matchNotes = await notesRes.json();
         setConfigs({ playerRegistry, teamConfig, manualRoles });
+        setLoadedNotes(Array.isArray(matchNotes) ? matchNotes : []);
       } catch (err) {
         setError(`Failed to load config files: ${err.message}`);
       }
@@ -139,6 +176,29 @@ export default function App() {
               {data.dataHash}
             </span>
           )}
+          {unsavedCount > 0 && (
+            <span
+              className="text-xs font-semibold px-2 py-0.5 rounded"
+              style={{ backgroundColor: 'var(--color-accent)', color: 'var(--color-bg)' }}
+              title={`${unsavedCount} note(s) added this session`}
+            >
+              {unsavedCount} unsaved
+            </span>
+          )}
+          {mergedNotes.size > 0 && (
+            <button
+              onClick={handleDownloadNotes}
+              className="text-xs px-3 py-1 rounded cursor-pointer"
+              style={{
+                backgroundColor: 'var(--color-surface-hover)',
+                color: 'var(--color-accent)',
+                border: '1px solid var(--color-border)',
+              }}
+              title="Download all match notes as JSON"
+            >
+              Download match_notes.json
+            </button>
+          )}
           <button
             onClick={handleReset}
             className="text-sm px-3 py-1 rounded cursor-pointer"
@@ -184,9 +244,17 @@ export default function App() {
           {activeView === 'maps' && <MapStrength data={data} onNavigateMatchLog={navigateToMatchLog} />}
           {activeView === 'opponents' && <OpponentMatrix data={data} onNavigateMatchLog={navigateToMatchLog} />}
           {activeView === 'lineups' && <Lineups data={data} onNavigateMatchLog={navigateToMatchLog} />}
-          {activeView === 'players' && <PlayerCards data={data} onNavigateMatchLog={navigateToMatchLog} />}
+          {activeView === 'players' && <PlayerCards data={data} onNavigateMatchLog={navigateToMatchLog} matchNotes={mergedNotes} />}
           {activeView === 'draft' && <DraftHelper data={data} />}
-          {activeView === 'matches' && <MatchLog data={data} initialFilters={matchLogFilters} key={matchLogFilters?._ts || 'default'} />}
+          {activeView === 'matches' && (
+            <MatchLog
+              data={data}
+              initialFilters={matchLogFilters}
+              key={matchLogFilters?._ts || 'default'}
+              matchNotes={mergedNotes}
+              onSaveNote={handleSaveNote}
+            />
+          )}
           {activeView === 'health' && <DataHealth data={data} />}
         </main>
       </div>
