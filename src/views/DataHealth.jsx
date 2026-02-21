@@ -23,6 +23,7 @@ export default function DataHealth({ data }) {
     duplicateRoles,
     duplicateRoleExamples,
     durationParseErrors,
+    pairLookupMisses,
     pairStats,
     lineupStats,
     scopeDate,
@@ -264,6 +265,7 @@ export default function DataHealth({ data }) {
           rows={[
             ['Team match rows (scoped)', teamMatchRows.length],
             ['Pair stats entries', pairStats.length],
+            ['Pair player lookup misses', pairLookupMisses ?? 0],
             ['Lineup combinations', lineupStats.length],
             ['Date range', dateRange],
             ['Duration parse errors', durationParseErrors ?? 0],

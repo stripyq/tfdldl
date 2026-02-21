@@ -273,7 +273,7 @@ export function mergeRoles(playerRows, roles, normalizeNick, playerRegistry) {
     return lower;
   }
 
-  // Build lookup by match_id + resolved canonical, detect duplicates
+  // Build lookup by match_id + resolved canonical, detect and merge duplicates
   const roleMap = new Map();
   let duplicateRoles = 0;
   const duplicateRoleExamples = [];
@@ -291,6 +291,13 @@ export function mergeRoles(playerRows, roles, normalizeNick, playerRegistry) {
           incoming: r.role_parsed,
         });
       }
+      // Deterministic merge: disagreeing roles → ROTATION, agreeing → keep
+      if (existing.role_parsed !== r.role_parsed) {
+        existing.role_parsed = 'ROTATION';
+        existing.role_raw = [existing.role_raw, r.role_raw].join(', ');
+      }
+      // Keep existing entry (already in map), skip setting r
+      continue;
     }
     roleMap.set(key, r);
   }

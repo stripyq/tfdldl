@@ -56,6 +56,15 @@ export function classifySides(matches, playerRows) {
   }
 
   for (const match of matches) {
+    if (!match.is_4v4) {
+      // Non-4v4: null out classification to prevent downstream misuse
+      match.team_red = null;
+      match.team_blue = null;
+      match.class_red = null;
+      match.class_blue = null;
+      continue;
+    }
+
     const redPlayers = matchSideMap.get(`${match.match_id}::red`) || [];
     const bluePlayers = matchSideMap.get(`${match.match_id}::blue`) || [];
 

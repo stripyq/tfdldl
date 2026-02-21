@@ -6,20 +6,21 @@ import { buildNickNormalizer } from './normalizeNick.js';
 
 /**
  * Parse "MM:SS" or "H:MM:SS" duration string to seconds.
- * Returns NaN for unparseable formats.
+ * Returns null for missing/unparseable formats so callers can exclude
+ * these matches from rate-based metrics (DPM, caps/min).
  */
 function parseDuration(dur) {
-  if (!dur) return 0;
+  if (!dur) return null;
   const parts = dur.split(':');
   if (parts.length === 2) {
     const val = parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
-    return isNaN(val) ? NaN : val;
+    return isNaN(val) ? null : val;
   }
   if (parts.length === 3) {
     const val = parseInt(parts[0], 10) * 3600 + parseInt(parts[1], 10) * 60 + parseInt(parts[2], 10);
-    return isNaN(val) ? NaN : val;
+    return isNaN(val) ? null : val;
   }
-  return NaN;
+  return null;
 }
 
 /**
@@ -149,12 +150,11 @@ export function parseMatches(rawMatches, playerRegistry, teamConfig) {
 
   for (const raw of rawMatches) {
     const matchId = raw.match_id;
-    let durationSec = parseDuration(raw.duration);
-    if (isNaN(durationSec)) {
+    const durationSec = parseDuration(raw.duration);
+    if (durationSec === null) {
       durationParseErrors++;
-      durationSec = 0;
     }
-    const durationMin = durationSec / 60;
+    const durationMin = durationSec !== null ? durationSec / 60 : null;
     const [scoreRed, scoreBlue] = parseScores(raw.scores);
     const { datetime_local, date_local } = toLocal(raw.played_at);
 
