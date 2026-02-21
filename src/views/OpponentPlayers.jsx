@@ -10,13 +10,13 @@ import { getStatColor } from '../utils/getStatColor.js';
 
 const FOCUS = 'wAnnaBees';
 
-export default function OpponentPlayers({ data, onNavigateMatchLog, initialOpponent }) {
+export default function OpponentPlayers({ data, officialOnly, onNavigateMatchLog, initialOpponent }) {
   const { teamMatchRows, playerRows } = data;
 
   // All wB matches (loose)
   const wbRows = useMemo(() => {
-    return teamMatchRows.filter((r) => r.team_name === FOCUS && r.qualifies_loose);
-  }, [teamMatchRows]);
+    return teamMatchRows.filter((r) => r.team_name === FOCUS && r.qualifies_loose && (!officialOnly || r.match_type === 'official'));
+  }, [teamMatchRows, officialOnly]);
 
   // Group playerRows by match_id for fast lookup
   const playersByMatch = useMemo(() => {

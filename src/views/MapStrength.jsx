@@ -11,7 +11,7 @@ import { getStatColor } from '../utils/getStatColor.js';
 
 const MIN_GAMES = 3;
 
-export default function MapStrength({ data, onNavigateMatchLog, matchNotes }) {
+export default function MapStrength({ data, officialOnly, onNavigateMatchLog, matchNotes }) {
   const { teamMatchRows } = data;
   const [mode, setMode] = useState('loose'); // 'loose' | 'strict'
   const [sortCol, setSortCol] = useState('games');
@@ -21,9 +21,9 @@ export default function MapStrength({ data, onNavigateMatchLog, matchNotes }) {
 
   const focusRows = useMemo(() => {
     return teamMatchRows.filter(
-      (r) => r.team_name === 'wAnnaBees' && r[predicate]
+      (r) => r.team_name === 'wAnnaBees' && r[predicate] && (!officialOnly || r.match_type === 'official')
     );
-  }, [teamMatchRows, predicate]);
+  }, [teamMatchRows, predicate, officialOnly]);
 
   const mapStats = useMemo(() => {
     const mapMap = {};

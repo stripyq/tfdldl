@@ -8,13 +8,13 @@ import ExportButton from '../components/ExportButton.jsx';
 import InfoTip from '../components/InfoTip.jsx';
 import { getStatColor } from '../utils/getStatColor.js';
 
-export default function CloseGames({ data, onNavigateMatchLog }) {
+export default function CloseGames({ data, officialOnly, onNavigateMatchLog }) {
   const { teamMatchRows, focusTeam } = data;
 
   // All focus team matches (loose)
   const focusRows = useMemo(() => {
-    return teamMatchRows.filter((r) => r.team_name === focusTeam && r.qualifies_loose);
-  }, [teamMatchRows, focusTeam]);
+    return teamMatchRows.filter((r) => r.team_name === focusTeam && r.qualifies_loose && (!officialOnly || r.match_type === 'official'));
+  }, [teamMatchRows, focusTeam, officialOnly]);
 
   // Close games: ±1 cap, excluding draws
   const closeGames = useMemo(() => {

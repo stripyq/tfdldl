@@ -22,13 +22,13 @@ function ratioColor(flagsFor, flagsAgainst) {
   return 'var(--color-loss)';
 }
 
-export default function Overview({ data, onNavigateMatchLog, onNavigateOpponent, matchNotes, leagueConfig }) {
+export default function Overview({ data, officialOnly, onNavigateMatchLog, onNavigateOpponent, matchNotes, leagueConfig }) {
   const { teamMatchRows, focusTeam } = data;
 
-  // Focus team rows with loose qualification
+  // Focus team rows with loose qualification (respects global official-only toggle)
   const focusRows = useMemo(
-    () => teamMatchRows.filter((r) => r.team_name === focusTeam && r.qualifies_loose),
-    [teamMatchRows, focusTeam]
+    () => teamMatchRows.filter((r) => r.team_name === focusTeam && r.qualifies_loose && (!officialOnly || r.match_type === 'official')),
+    [teamMatchRows, focusTeam, officialOnly]
   );
 
   const wins = focusRows.filter((r) => r.result === 'W').length;
@@ -188,10 +188,16 @@ export default function Overview({ data, onNavigateMatchLog, onNavigateOpponent,
   const annotatedCount = formationStats.reduce((s, f) => s + f.games, 0)
     + rotationStats.reduce((s, r) => s + r.games, 0);
 
-  // --- Series heuristic: group maps into series by opponent + date ---
+  // Official-only rows for League Standings (always filtered regardless of toggle)
+  const officialFocusRows = useMemo(
+    () => teamMatchRows.filter((r) => r.team_name === focusTeam && r.qualifies_loose && r.match_type === 'official'),
+    [teamMatchRows, focusTeam]
+  );
+
+  // --- Series heuristic: group maps into series by opponent + date (official only) ---
   const seriesData = useMemo(() => {
     const seriesMap = {};
-    for (const r of focusRows) {
+    for (const r of officialFocusRows) {
       if (!r.opponent_team) continue;
       const key = `${r.opponent_team}::${r.date_local}`;
       if (!seriesMap[key]) seriesMap[key] = { opponent: r.opponent_team, date: r.date_local, maps: [] };
@@ -269,7 +275,7 @@ export default function Overview({ data, onNavigateMatchLog, onNavigateOpponent,
       allSeries, outcomes, okTotal, weakCount, ambiguousCount,
       seriesCount, avgMapsWon, avgMapsLost, oppSeriesRows,
     };
-  }, [focusRows]);
+  }, [officialFocusRows]);
 
   // --- League schedule ---
   const scheduleData = useMemo(() => {
@@ -564,7 +570,7 @@ export default function Overview({ data, onNavigateMatchLog, onNavigateOpponent,
       {/* League Standings Metrics */}
       {seriesData.seriesCount > 0 && (
         <CollapsibleCard
-          title={<>League Standings <InfoTip text="Series are detected by grouping matches on the same date vs the same opponent. This is a heuristic — not all groupings may represent actual BO3 series." /></>}
+          title={<>League Standings <InfoTip text="Official matches only. Series are detected by grouping matches on the same date vs the same opponent." /></>}
           summary={`${seriesData.seriesCount} series${leagueConfig ? ` \u00B7 ${leagueConfig.league_name}` : ''}`}
           right={
             <ExportButton

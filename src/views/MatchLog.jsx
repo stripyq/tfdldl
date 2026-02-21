@@ -12,8 +12,10 @@ import PlayerNames from '../components/PlayerNames.jsx';
 
 const FORMATION_OPTIONS = ['', '1def-3off', '2def-2off', '1def-2off-1mid', 'custom'];
 const ROTATION_OPTIONS = ['', 'Rigid', 'Dynamic', 'Mixed'];
+const MATCH_TYPE_OPTIONS = ['', 'official', 'practice', 'scrim'];
+const COIN_TOSS_OPTIONS = ['', 'won', 'lost'];
 
-export default function MatchLog({ data, initialFilters, matchNotes, onSaveNote }) {
+export default function MatchLog({ data, officialOnly, initialFilters, matchNotes, onSaveNote }) {
   const { matches, teamMatchRows, playerRows, focusTeam } = data;
 
   // Build lookup maps
@@ -55,9 +57,10 @@ export default function MatchLog({ data, initialFilters, matchNotes, onSaveNote 
 
   // Build rows based on team filter
   const allRows = useMemo(() => {
+    const officialFilter = (m) => !officialOnly || m.match_type === 'official';
     if (isAllTeams) {
       // One row per match, showing both sides
-      return matches.map((m) => ({
+      return matches.filter(officialFilter).map((m) => ({
         match_id: m.match_id,
         date_local: m.date_local,
         datetime_local: m.datetime_local || '',
@@ -80,7 +83,7 @@ export default function MatchLog({ data, initialFilters, matchNotes, onSaveNote 
     }
 
     // Specific team perspective
-    const teamRows = teamMatchRows.filter((r) => r.team_name === filterTeam);
+    const teamRows = teamMatchRows.filter((r) => r.team_name === filterTeam && officialFilter(r));
     return teamRows.map((r) => {
       const match = matchMap.get(r.match_id);
       const oppSide = r.side === 'red' ? 'blue' : 'red';
@@ -98,7 +101,7 @@ export default function MatchLog({ data, initialFilters, matchNotes, onSaveNote 
       (b.date_local || '').localeCompare(a.date_local || '') ||
       (b.datetime_local || '').localeCompare(a.datetime_local || '')
     );
-  }, [isAllTeams, matches, teamMatchRows, filterTeam, matchMap]);
+  }, [isAllTeams, matches, teamMatchRows, filterTeam, matchMap, officialOnly]);
 
   // Collect all unique tags from notes
   const allTags = useMemo(() => {
@@ -705,6 +708,14 @@ function NoteForm({ matchId, dateLocal, map, existingNote, onSave, onCancel }) {
   const [tagsStr, setTagsStr] = useState(
     existingNote?.tags ? existingNote.tags.join(', ') : ''
   );
+  const [matchType, setMatchType] = useState(existingNote?.match_type || '');
+  const [round, setRound] = useState(existingNote?.round ?? '');
+  const [coinToss, setCoinToss] = useState(existingNote?.coin_toss || '');
+  const [ourBan, setOurBan] = useState(existingNote?.our_ban || '');
+  const [theirBan, setTheirBan] = useState(existingNote?.their_ban || '');
+  const [ourPick, setOurPick] = useState(existingNote?.our_pick || '');
+  const [theirPick, setTheirPick] = useState(existingNote?.their_pick || '');
+  const [decider, setDecider] = useState(existingNote?.decider || '');
 
   function handleSubmit(e) {
     e.preventDefault();
@@ -713,7 +724,7 @@ function NoteForm({ matchId, dateLocal, map, existingNote, onSave, onCancel }) {
       .split(',')
       .map((t) => t.trim())
       .filter(Boolean);
-    onSave({
+    const note = {
       match_id: matchId,
       date_local: dateLocal,
       map,
@@ -723,7 +734,18 @@ function NoteForm({ matchId, dateLocal, map, existingNote, onSave, onCancel }) {
       formation: formation || undefined,
       rotation_style: rotationStyle || undefined,
       tags,
-    });
+    };
+    if (matchType) note.match_type = matchType;
+    if (matchType === 'official') {
+      if (round !== '') note.round = Number(round);
+      if (coinToss) note.coin_toss = coinToss;
+      if (ourBan) note.our_ban = ourBan;
+      if (theirBan) note.their_ban = theirBan;
+      if (ourPick) note.our_pick = ourPick;
+      if (theirPick) note.their_pick = theirPick;
+      if (decider) note.decider = decider;
+    }
+    onSave(note);
   }
 
   const inputStyle = {
@@ -745,7 +767,22 @@ function NoteForm({ matchId, dateLocal, map, existingNote, onSave, onCancel }) {
       <p className="text-xs font-medium mb-2" style={{ color: 'var(--color-accent)' }}>
         Match Note &mdash; {dateLocal} {map}
       </p>
-      <div className="grid grid-cols-2 gap-2 mb-2">
+      <div className="grid grid-cols-3 gap-2 mb-2">
+        <div>
+          <label className="text-[10px] block mb-0.5" style={{ color: 'var(--color-text-muted)' }}>
+            Match Type
+          </label>
+          <select
+            value={matchType}
+            onChange={(e) => setMatchType(e.target.value)}
+            className="w-full rounded px-2 py-1 text-xs cursor-pointer"
+            style={inputStyle}
+          >
+            {MATCH_TYPE_OPTIONS.map((t) => (
+              <option key={t} value={t}>{t || '\u2014 auto \u2014'}</option>
+            ))}
+          </select>
+        </div>
         <div>
           <label className="text-[10px] block mb-0.5" style={{ color: 'var(--color-text-muted)' }}>
             Formation
@@ -777,6 +814,47 @@ function NoteForm({ matchId, dateLocal, map, existingNote, onSave, onCancel }) {
           </select>
         </div>
       </div>
+      {matchType === 'official' && (
+        <div className="rounded p-2 mb-2" style={{ backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)' }}>
+          <p className="text-[10px] font-medium mb-1" style={{ color: 'var(--color-accent)' }}>Official Match Details</p>
+          <div className="grid grid-cols-3 gap-2 mb-1">
+            <div>
+              <label className="text-[10px] block mb-0.5" style={{ color: 'var(--color-text-muted)' }}>Round #</label>
+              <input type="number" value={round} onChange={(e) => setRound(e.target.value)} className="w-full rounded px-2 py-1 text-xs" style={inputStyle} placeholder="e.g. 1" />
+            </div>
+            <div>
+              <label className="text-[10px] block mb-0.5" style={{ color: 'var(--color-text-muted)' }}>Coin Toss</label>
+              <select value={coinToss} onChange={(e) => setCoinToss(e.target.value)} className="w-full rounded px-2 py-1 text-xs cursor-pointer" style={inputStyle}>
+                {COIN_TOSS_OPTIONS.map((c) => (
+                  <option key={c} value={c}>{c || '\u2014'}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-[10px] block mb-0.5" style={{ color: 'var(--color-text-muted)' }}>Decider Map</label>
+              <input type="text" value={decider} onChange={(e) => setDecider(e.target.value)} className="w-full rounded px-2 py-1 text-xs" style={inputStyle} placeholder="e.g. infinity" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-[10px] block mb-0.5" style={{ color: 'var(--color-text-muted)' }}>Our Ban</label>
+              <input type="text" value={ourBan} onChange={(e) => setOurBan(e.target.value)} className="w-full rounded px-2 py-1 text-xs" style={inputStyle} />
+            </div>
+            <div>
+              <label className="text-[10px] block mb-0.5" style={{ color: 'var(--color-text-muted)' }}>Their Ban</label>
+              <input type="text" value={theirBan} onChange={(e) => setTheirBan(e.target.value)} className="w-full rounded px-2 py-1 text-xs" style={inputStyle} />
+            </div>
+            <div>
+              <label className="text-[10px] block mb-0.5" style={{ color: 'var(--color-text-muted)' }}>Our Pick</label>
+              <input type="text" value={ourPick} onChange={(e) => setOurPick(e.target.value)} className="w-full rounded px-2 py-1 text-xs" style={inputStyle} />
+            </div>
+            <div>
+              <label className="text-[10px] block mb-0.5" style={{ color: 'var(--color-text-muted)' }}>Their Pick</label>
+              <input type="text" value={theirPick} onChange={(e) => setTheirPick(e.target.value)} className="w-full rounded px-2 py-1 text-xs" style={inputStyle} />
+            </div>
+          </div>
+        </div>
+      )}
       <div className="grid grid-cols-1 gap-2 mb-2">
         <div>
           <label className="text-[10px] block mb-0.5" style={{ color: 'var(--color-text-muted)' }}>

@@ -9,13 +9,13 @@ import { getStatColor } from '../utils/getStatColor.js';
 
 const MIN_H2H = 2;
 
-export default function DraftHelper({ data }) {
+export default function DraftHelper({ data, officialOnly, matchNotes }) {
   const { teamMatchRows, focusTeam, lineupStats } = data;
 
   // Focus team rows (loose qualification)
   const focusRows = useMemo(
-    () => teamMatchRows.filter((r) => r.team_name === focusTeam && r.qualifies_loose),
-    [teamMatchRows, focusTeam]
+    () => teamMatchRows.filter((r) => r.team_name === focusTeam && r.qualifies_loose && (!officialOnly || r.match_type === 'official')),
+    [teamMatchRows, focusTeam, officialOnly]
   );
 
   // Unique opponents sorted by game count
@@ -59,14 +59,11 @@ export default function DraftHelper({ data }) {
       .sort((a, b) => b.games - a.games);
   }, [focusRows, selectedOpp]);
 
-  // Reset their lineup when opponent changes
-  const prevOppRef = { current: selectedOpp };
-  useMemo(() => {
-    if (prevOppRef.current !== selectedOpp) {
-      setSelectedTheirLineup('');
-    }
-    prevOppRef.current = selectedOpp;
-  }, [selectedOpp]);
+  // Their lineup is implicitly reset when theirLineupOptions changes (opponent change)
+  // If selected value not in options, treat as empty
+  const effectiveTheirLineup = theirLineupOptions.some((l) => l.lineup_key === selectedTheirLineup)
+    ? selectedTheirLineup
+    : '';
 
   // Per-map stats for selected "Our Lineup"
   const ourLineupMapStats = useMemo(() => {
@@ -106,7 +103,7 @@ export default function DraftHelper({ data }) {
     const stats = {};
     for (const r of focusRows) {
       if (r.opponent_team !== selectedOpp) continue;
-      if (selectedTheirLineup && r.opponent_lineup_key !== selectedTheirLineup) continue;
+      if (effectiveTheirLineup && r.opponent_lineup_key !== effectiveTheirLineup) continue;
       if (!stats[r.map]) stats[r.map] = { games: 0, wins: 0, losses: 0 };
       stats[r.map].games++;
       if (r.result === 'W') stats[r.map].wins++;
@@ -116,7 +113,7 @@ export default function DraftHelper({ data }) {
       s.winPct = s.games > 0 ? (s.wins / s.games) * 100 : 0;
     }
     return stats;
-  }, [focusRows, selectedOpp, selectedTheirLineup]);
+  }, [focusRows, selectedOpp, effectiveTheirLineup]);
 
   // Opponent's global map stats (from ALL their matches, not just vs us)
   const oppGlobalMapStats = useMemo(() => {
@@ -239,6 +236,38 @@ export default function DraftHelper({ data }) {
     return parts.join('. ') + '.';
   }, [selectedOpp, bestPick, ban, veto, safePick, oppGlobalMapStats]);
 
+  // Veto history from official match notes vs selected opponent
+  const vetoHistory = useMemo(() => {
+    if (!selectedOpp || !matchNotes || matchNotes.size === 0) return [];
+    // Collect match_ids for the selected opponent
+    const oppMatchIds = new Set();
+    for (const r of focusRows) {
+      if (r.opponent_team === selectedOpp) oppMatchIds.add(r.match_id);
+    }
+    const rows = [];
+    const seen = new Set(); // deduplicate by date (one veto entry per series)
+    for (const [id, note] of matchNotes) {
+      if (!oppMatchIds.has(id)) continue;
+      if (note.match_type !== 'official') continue;
+      if (!note.our_ban && !note.their_ban && !note.our_pick && !note.their_pick && !note.decider) continue;
+      const dateKey = note.date_local || '';
+      if (seen.has(dateKey)) continue; // one per series date
+      seen.add(dateKey);
+      rows.push({
+        match_id: id,
+        date_local: note.date_local || '',
+        roundLabel: note.round != null ? `R${note.round}` : (note.match_round || ''),
+        coin_toss: note.coin_toss || null,
+        our_ban: note.our_ban || null,
+        their_ban: note.their_ban || null,
+        our_pick: note.our_pick || null,
+        their_pick: note.their_pick || null,
+        decider: note.decider || null,
+      });
+    }
+    return rows.sort((a, b) => a.date_local.localeCompare(b.date_local));
+  }, [selectedOpp, matchNotes, focusRows]);
+
   function recColor(rec) {
     if (rec === 'pick') return 'var(--color-win)';
     if (rec === 'avoid') return 'var(--color-loss)';
@@ -265,7 +294,7 @@ export default function DraftHelper({ data }) {
     } : {}),
     wb_vs_opp_win_pct: r.h2hWinPct !== null ? r.h2hWinPct.toFixed(1) : '',
     wb_vs_opp_record: r.h2h ? `${r.h2h.wins}W-${r.h2h.losses}L` : '',
-    ...(selectedTheirLineup ? { their_lineup_filter: selectedTheirLineup } : {}),
+    ...(effectiveTheirLineup ? { their_lineup_filter: effectiveTheirLineup } : {}),
     opp_global_win_pct: r.oppGlobal ? r.oppGlobal.winPct.toFixed(1) : '',
     opp_global_record: r.oppGlobal ? `${r.oppGlobal.wins}W-${r.oppGlobal.losses}L` : '',
     recommendation: recLabel(r.rec),
@@ -346,7 +375,7 @@ export default function DraftHelper({ data }) {
               Their Lineup
             </label>
             <select
-              value={selectedTheirLineup}
+              value={effectiveTheirLineup}
               onChange={(e) => setSelectedTheirLineup(e.target.value)}
               className="px-3 py-2 rounded text-sm"
               style={{
@@ -429,15 +458,61 @@ export default function DraftHelper({ data }) {
           className="rounded-lg p-4 mb-6 text-sm"
           style={{ backgroundColor: 'var(--color-surface)', color: 'var(--color-text-muted)' }}
         >
-          No head-to-head data vs {selectedOpp}{selectedTheirLineup ? ' with this lineup filter' : ''}. Recommendations are based on global map strength.
+          No head-to-head data vs {selectedOpp}{effectiveTheirLineup ? ' with this lineup filter' : ''}. Recommendations are based on global map strength.
         </div>
       )}
-      {selectedOpp && hasH2H && selectedTheirLineup && Object.values(h2hMapStats).reduce((s, m) => s + m.games, 0) < 2 && (
+      {selectedOpp && hasH2H && effectiveTheirLineup && Object.values(h2hMapStats).reduce((s, m) => s + m.games, 0) < 2 && (
         <div
           className="rounded-lg p-4 mb-6 text-sm"
           style={{ backgroundColor: 'var(--color-surface)', color: 'var(--color-draw, orange)' }}
         >
           Low sample: &lt;2 games for this opponent lineup filter. H2H data may not be reliable.
+        </div>
+      )}
+
+      {/* Veto history from official matches */}
+      {selectedOpp && vetoHistory.length > 0 && (
+        <div
+          className="rounded-lg p-4 mb-6"
+          style={{ backgroundColor: 'var(--color-surface)' }}
+        >
+          <p
+            className="text-xs uppercase tracking-wide mb-3"
+            style={{ color: 'var(--color-text-muted)' }}
+          >
+            Veto History vs {selectedOpp}
+          </p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr>
+                  {['Date', 'Round', 'Coin', 'Our Ban', 'Their Ban', 'Our Pick', 'Their Pick', 'Decider'].map((h) => (
+                    <th
+                      key={h}
+                      className="text-left pb-2 border-b font-medium"
+                      style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-muted)' }}
+                    >
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {vetoHistory.map((v) => (
+                  <tr key={v.match_id}>
+                    <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)' }}>{v.date_local}</td>
+                    <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)', color: 'var(--color-accent)' }}>{v.roundLabel || '\u2014'}</td>
+                    <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)', color: v.coin_toss === 'won' ? 'var(--color-win)' : v.coin_toss === 'lost' ? 'var(--color-loss)' : undefined }}>{v.coin_toss || '\u2014'}</td>
+                    <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)', color: 'var(--color-loss)' }}>{v.our_ban || '\u2014'}</td>
+                    <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)', color: 'var(--color-loss)' }}>{v.their_ban || '\u2014'}</td>
+                    <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)', color: 'var(--color-win)' }}>{v.our_pick || '\u2014'}</td>
+                    <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)', color: 'var(--color-win)' }}>{v.their_pick || '\u2014'}</td>
+                    <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)', color: 'var(--color-accent)' }}>{v.decider || '\u2014'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

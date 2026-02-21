@@ -12,7 +12,7 @@ import { getStatColor, getStatBg } from '../utils/getStatColor.js';
 const FOCUS = 'wAnnaBees';
 const MIN_GAMES = 3;
 
-export default function Lineups({ data, onNavigateMatchLog }) {
+export default function Lineups({ data, officialOnly, onNavigateMatchLog }) {
   const { lineupStats, pairStats, teamMatchRows, playerRows } = data;
 
   // Build set of focus team members for sub badges
@@ -54,7 +54,7 @@ export default function Lineups({ data, onNavigateMatchLog }) {
 
   // Per-lineup per-opponent breakdown from teamMatchRows
   const lineupOppBreakdown = useMemo(() => {
-    const focusRows = teamMatchRows.filter((r) => r.team_name === FOCUS);
+    const focusRows = teamMatchRows.filter((r) => r.team_name === FOCUS && (!officialOnly || r.match_type === 'official'));
     const map = new Map(); // lineup_key -> Map<opponent, { games, wins, losses, totalCapDiff }>
     for (const r of focusRows) {
       if (!map.has(r.lineup_key)) map.set(r.lineup_key, new Map());
@@ -68,7 +68,7 @@ export default function Lineups({ data, onNavigateMatchLog }) {
       entry.totalCapDiff += r.cap_diff;
     }
     return map;
-  }, [teamMatchRows]);
+  }, [teamMatchRows, officialOnly]);
 
   function handleSort(col) {
     if (sortCol === col) setSortAsc(!sortAsc);
@@ -91,7 +91,7 @@ export default function Lineups({ data, onNavigateMatchLog }) {
   const { players, pairMap, pairExport } = useMemo(() => {
     // Get all wB players who appear in qualifying matches
     const focusRows = teamMatchRows.filter(
-      (r) => r.team_name === FOCUS && r.qualifies_loose
+      (r) => r.team_name === FOCUS && r.qualifies_loose && (!officialOnly || r.match_type === 'official')
     );
     const playerGames = {};
     for (const r of focusRows) {
@@ -124,7 +124,7 @@ export default function Lineups({ data, onNavigateMatchLog }) {
       }));
 
     return { players: sortedPlayers, pairMap: pm, pairExport: pe };
-  }, [teamMatchRows, pairStats]);
+  }, [teamMatchRows, pairStats, officialOnly]);
 
   const columns = [
     { key: 'lineup', label: 'Lineup' },
