@@ -2,6 +2,7 @@
  * MatchLog view — filterable, sortable match table with expandable per-player detail.
  * Supports external filter presets via initialFilters prop (for cross-view navigation).
  * Supports match annotations: inline note form, note icon, tag filter.
+ * Team filter: 'All' shows every match (Red/Blue columns), specific team shows perspective view.
  */
 
 import { useState, useMemo } from 'react';
@@ -32,19 +33,55 @@ export default function MatchLog({ data, initialFilters, matchNotes, onSaveNote 
     return m;
   }, [playerRows]);
 
-  // Build set of focus team members for sub badges
+  // All unique team names (for Team filter dropdown)
+  const teamOptions = useMemo(() => {
+    const teams = new Set();
+    for (const r of teamMatchRows) teams.add(r.team_name);
+    return [...teams].sort();
+  }, [teamMatchRows]);
+
+  // Team filter state
+  const [filterTeam, setFilterTeam] = useState(initialFilters?.team || FOCUS);
+  const isAllTeams = filterTeam === 'all';
+
+  // Build team members for sub badges (for the selected team perspective)
   const teamMembers = useMemo(() => {
     const set = new Set();
+    if (isAllTeams) return set;
     for (const p of playerRows) {
-      if (p.team_membership === FOCUS) set.add(p.canonical);
+      if (p.team_membership === filterTeam) set.add(p.canonical);
     }
     return set;
-  }, [playerRows]);
+  }, [playerRows, filterTeam, isAllTeams]);
 
-  // Build wB match rows with enriched data
+  // Build rows based on team filter
   const allRows = useMemo(() => {
-    const focusRows = teamMatchRows.filter((r) => r.team_name === FOCUS);
-    return focusRows.map((r) => {
+    if (isAllTeams) {
+      // One row per match, showing both sides
+      return matches.map((m) => ({
+        match_id: m.match_id,
+        date_local: m.date_local,
+        datetime_local: m.datetime_local || '',
+        map: m.map,
+        team_red: m.team_red || 'MIX',
+        team_blue: m.team_blue || 'MIX',
+        score_red: m.score_red,
+        score_blue: m.score_blue,
+        class_red: m.class_red,
+        class_blue: m.class_blue,
+        url: m.url || '',
+        qualifies_loose: m.qualifies_loose,
+        qualifies_strict: m.qualifies_strict,
+        qualifies_h2h: m.qualifies_h2h,
+      })).sort((a, b) =>
+        (b.date_local || '').localeCompare(a.date_local || '') ||
+        (b.datetime_local || '').localeCompare(a.datetime_local || '')
+      );
+    }
+
+    // Specific team perspective
+    const teamRows = teamMatchRows.filter((r) => r.team_name === filterTeam);
+    return teamRows.map((r) => {
       const match = matchMap.get(r.match_id);
       const oppSide = r.side === 'red' ? 'blue' : 'red';
       const oppClass = match
@@ -56,8 +93,11 @@ export default function MatchLog({ data, initialFilters, matchNotes, onSaveNote 
         opp_class: oppClass,
         datetime_local: match?.datetime_local || '',
       };
-    }).sort((a, b) => (b.date_local || '').localeCompare(a.date_local || '') || (b.datetime_local || '').localeCompare(a.datetime_local || ''));
-  }, [teamMatchRows, matchMap]);
+    }).sort((a, b) =>
+      (b.date_local || '').localeCompare(a.date_local || '') ||
+      (b.datetime_local || '').localeCompare(a.datetime_local || '')
+    );
+  }, [isAllTeams, matches, teamMatchRows, filterTeam, matchMap]);
 
   // Collect all unique tags from notes
   const allTags = useMemo(() => {
@@ -73,15 +113,15 @@ export default function MatchLog({ data, initialFilters, matchNotes, onSaveNote 
     return [...tags].sort();
   }, [matchNotes]);
 
-  // Extract filter options
+  // Extract filter options from current rows
   const mapOptions = useMemo(
     () => [...new Set(allRows.map((r) => r.map))].sort(),
     [allRows]
   );
-  const oppOptions = useMemo(
-    () => [...new Set(allRows.map((r) => r.opponent_team).filter(Boolean))].sort(),
-    [allRows]
-  );
+  const oppOptions = useMemo(() => {
+    if (isAllTeams) return [];
+    return [...new Set(allRows.map((r) => r.opponent_team).filter(Boolean))].sort();
+  }, [allRows, isAllTeams]);
 
   // Filter state — initialized from external filter presets (component is re-keyed on change)
   const [filterMap, setFilterMap] = useState(initialFilters?.map || 'all');
@@ -97,18 +137,38 @@ export default function MatchLog({ data, initialFilters, matchNotes, onSaveNote 
   const [expandedId, setExpandedId] = useState(null);
   const [noteFormId, setNoteFormId] = useState(null);
 
+  function handleTeamChange(team) {
+    setFilterTeam(team);
+    setFilterMap('all');
+    setFilterOpp('all');
+    setFilterResult('all');
+    setFilterLineup(null);
+    setFilterPlayer(null);
+    setFilterClose(false);
+    setFilterTag('all');
+    setSortCol('date');
+    setSortAsc(false);
+    setExpandedId(null);
+  }
+
   // Apply filters
   const filtered = useMemo(() => {
     return allRows.filter((r) => {
       if (filterMap !== 'all' && r.map !== filterMap) return false;
-      if (filterOpp !== 'all' && r.opponent_team !== filterOpp) return false;
-      if (filterResult !== 'all' && r.result !== filterResult) return false;
       if (filterDataset === 'loose' && !r.qualifies_loose) return false;
       if (filterDataset === 'strict' && !r.qualifies_strict) return false;
       if (filterDataset === 'h2h' && !r.qualifies_h2h) return false;
-      if (filterClose && Math.abs(r.cap_diff) > 1) return false;
-      if (filterLineup && r.lineup_key !== filterLineup) return false;
-      if (filterPlayer && !r.player_names.includes(filterPlayer)) return false;
+
+      if (isAllTeams) {
+        if (filterClose && Math.abs(r.score_red - r.score_blue) > 1) return false;
+      } else {
+        if (filterOpp !== 'all' && r.opponent_team !== filterOpp) return false;
+        if (filterResult !== 'all' && r.result !== filterResult) return false;
+        if (filterClose && Math.abs(r.cap_diff) > 1) return false;
+        if (filterLineup && r.lineup_key !== filterLineup) return false;
+        if (filterPlayer && !r.player_names.includes(filterPlayer)) return false;
+      }
+
       if (filterTag !== 'all') {
         const note = matchNotes?.get(r.match_id);
         if (!note) return false;
@@ -117,19 +177,13 @@ export default function MatchLog({ data, initialFilters, matchNotes, onSaveNote 
       }
       return true;
     });
-  }, [allRows, filterMap, filterOpp, filterResult, filterDataset, filterClose, filterLineup, filterPlayer, filterTag, matchNotes]);
+  }, [allRows, filterMap, filterOpp, filterResult, filterDataset, filterClose, filterLineup, filterPlayer, filterTag, matchNotes, isAllTeams]);
 
   // Apply sorting
   const sorted = useMemo(() => {
-    const keyMap = {
-      date: 'date_local',
-      map: 'map',
-      score_for: 'score_for',
-      score_against: 'score_against',
-      result: 'result',
-      opponent: 'opponent_team',
-      opp_class: 'opp_class',
-    };
+    const keyMap = isAllTeams
+      ? { date: 'date_local', map: 'map', score_red: 'score_red', score_blue: 'score_blue', team_red: 'team_red', team_blue: 'team_blue' }
+      : { date: 'date_local', map: 'map', score_for: 'score_for', score_against: 'score_against', result: 'result', opponent: 'opponent_team', opp_class: 'opp_class' };
     const key = keyMap[sortCol] || 'date_local';
 
     return [...filtered].sort((a, b) => {
@@ -143,7 +197,7 @@ export default function MatchLog({ data, initialFilters, matchNotes, onSaveNote 
       if (typeof va === 'string') return sortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
       return sortAsc ? va - vb : vb - va;
     });
-  }, [filtered, sortCol, sortAsc]);
+  }, [filtered, sortCol, sortAsc, isAllTeams]);
 
   function handleSort(col) {
     if (sortCol === col) setSortAsc(!sortAsc);
@@ -157,31 +211,55 @@ export default function MatchLog({ data, initialFilters, matchNotes, onSaveNote 
   }
 
   // Export data
-  const exportData = sorted.map((r) => ({
-    date: r.date_local,
-    map: r.map,
-    wb_score: r.score_for,
-    opp_score: r.score_against,
-    result: r.result,
-    opponent: r.opponent_team || '',
-    opp_class: r.opp_class || '',
-    players: r.player_names.join(', '),
-    url: r.url,
-  }));
+  const exportData = isAllTeams
+    ? sorted.map((r) => ({
+        date: r.date_local,
+        map: r.map,
+        red_team: r.team_red,
+        red_score: r.score_red,
+        blue_score: r.score_blue,
+        blue_team: r.team_blue,
+        url: r.url,
+      }))
+    : sorted.map((r) => ({
+        date: r.date_local,
+        map: r.map,
+        team_score: r.score_for,
+        opp_score: r.score_against,
+        result: r.result,
+        opponent: r.opponent_team || '',
+        opp_class: r.opp_class || '',
+        players: r.player_names.join(', '),
+        url: r.url,
+      }));
+
+  const exportFilename = isAllTeams
+    ? 'all_match_log.csv'
+    : `${filterTeam.toLowerCase().replace(/\s+/g, '_')}_match_log.csv`;
 
   // Summary
-  const wins = filtered.filter((r) => r.result === 'W').length;
-  const losses = filtered.filter((r) => r.result === 'L').length;
+  const wins = isAllTeams ? 0 : filtered.filter((r) => r.result === 'W').length;
+  const losses = isAllTeams ? 0 : filtered.filter((r) => r.result === 'L').length;
 
-  const columns = [
-    { key: 'date', label: 'Date' },
-    { key: 'map', label: 'Map' },
-    { key: 'score_for', label: 'wB' },
-    { key: 'score_against', label: 'Opp' },
-    { key: 'result', label: 'Result' },
-    { key: 'opponent', label: 'Opponent' },
-    { key: 'opp_class', label: <>Class <InfoTip text="FULL_TEAM = all 4 same team. Stack = 3 of 4 same team. Mix = no dominant team." /></> },
-  ];
+  // Columns adapt to mode
+  const columns = isAllTeams
+    ? [
+        { key: 'date', label: 'Date' },
+        { key: 'map', label: 'Map' },
+        { key: 'team_red', label: 'Red Team' },
+        { key: 'score_red', label: 'Red' },
+        { key: 'score_blue', label: 'Blue' },
+        { key: 'team_blue', label: 'Blue Team' },
+      ]
+    : [
+        { key: 'date', label: 'Date' },
+        { key: 'map', label: 'Map' },
+        { key: 'score_for', label: filterTeam === FOCUS ? 'wB' : filterTeam },
+        { key: 'score_against', label: 'Opp' },
+        { key: 'result', label: 'Result' },
+        { key: 'opponent', label: 'Opponent' },
+        { key: 'opp_class', label: <>Class <InfoTip text="FULL_TEAM = all 4 same team. Stack = 3 of 4 same team. Mix = no dominant team." /></> },
+      ];
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
@@ -192,7 +270,7 @@ export default function MatchLog({ data, initialFilters, matchNotes, onSaveNote 
         >
           Match Log
         </h2>
-        <ExportButton data={exportData} filename="wb_match_log.csv" />
+        <ExportButton data={exportData} filename={exportFilename} />
       </div>
 
       {/* Filters */}
@@ -200,6 +278,12 @@ export default function MatchLog({ data, initialFilters, matchNotes, onSaveNote 
         className="rounded-lg p-4 mb-4 flex flex-wrap gap-4 items-end"
         style={{ backgroundColor: 'var(--color-surface)' }}
       >
+        <FilterSelect label="Team" value={filterTeam} onChange={handleTeamChange}
+          options={[
+            { value: 'all', label: 'All Teams' },
+            ...teamOptions.map((t) => ({ value: t, label: t })),
+          ]}
+        />
         <FilterSelect label="Dataset" value={filterDataset} onChange={setFilterDataset}
           options={[
             { value: 'all', label: 'All' },
@@ -211,17 +295,21 @@ export default function MatchLog({ data, initialFilters, matchNotes, onSaveNote 
         <FilterSelect label="Map" value={filterMap} onChange={setFilterMap}
           options={[{ value: 'all', label: 'All Maps' }, ...mapOptions.map((m) => ({ value: m, label: m }))]}
         />
-        <FilterSelect label="Opponent" value={filterOpp} onChange={setFilterOpp}
-          options={[{ value: 'all', label: 'All Opponents' }, ...oppOptions.map((o) => ({ value: o, label: o }))]}
-        />
-        <FilterSelect label="Result" value={filterResult} onChange={setFilterResult}
-          options={[
-            { value: 'all', label: 'All' },
-            { value: 'W', label: 'Wins' },
-            { value: 'L', label: 'Losses' },
-            { value: 'D', label: 'Draws' },
-          ]}
-        />
+        {!isAllTeams && (
+          <FilterSelect label="Opponent" value={filterOpp} onChange={setFilterOpp}
+            options={[{ value: 'all', label: 'All Opponents' }, ...oppOptions.map((o) => ({ value: o, label: o }))]}
+          />
+        )}
+        {!isAllTeams && (
+          <FilterSelect label="Result" value={filterResult} onChange={setFilterResult}
+            options={[
+              { value: 'all', label: 'All' },
+              { value: 'W', label: 'Wins' },
+              { value: 'L', label: 'Losses' },
+              { value: 'D', label: 'Draws' },
+            ]}
+          />
+        )}
         {allTags.length > 0 && (
           <FilterSelect label="Tag" value={filterTag} onChange={setFilterTag}
             options={[
@@ -264,8 +352,12 @@ export default function MatchLog({ data, initialFilters, matchNotes, onSaveNote 
       )}
 
       <p className="text-sm mb-4" style={{ color: 'var(--color-text-muted)' }}>
-        {filtered.length} matches &middot; {wins}W&ndash;{losses}L
-        {filtered.length > 0 && ` \u00B7 ${((wins / filtered.length) * 100).toFixed(0)}%`}
+        {filtered.length} matches
+        {!isAllTeams && (
+          <> &middot; {wins}W&ndash;{losses}L
+            {filtered.length > 0 && ` \u00B7 ${((wins / filtered.length) * 100).toFixed(0)}%`}
+          </>
+        )}
       </p>
 
       {sorted.length === 0 ? (
@@ -292,12 +384,14 @@ export default function MatchLog({ data, initialFilters, matchNotes, onSaveNote 
                     {sortCol === c.key && (sortAsc ? ' \u25B2' : ' \u25BC')}
                   </th>
                 ))}
-                <th
-                  className="text-left px-3 py-2 border-b font-medium"
-                  style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-muted)' }}
-                >
-                  Players
-                </th>
+                {!isAllTeams && (
+                  <th
+                    className="text-left px-3 py-2 border-b font-medium"
+                    style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-muted)' }}
+                  >
+                    Players
+                  </th>
+                )}
                 <th
                   className="text-left px-3 py-2 border-b font-medium"
                   style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-muted)' }}
@@ -315,12 +409,14 @@ export default function MatchLog({ data, initialFilters, matchNotes, onSaveNote 
                     onToggle={() => setExpandedId(isExpanded ? null : r.match_id)}
                     playersByMatch={playersByMatch}
                     matchMap={matchMap}
-                    colCount={columns.length + 2}
+                    colCount={columns.length + (isAllTeams ? 1 : 2)}
                     matchNotes={matchNotes}
                     onSaveNote={onSaveNote}
                     noteFormId={noteFormId}
                     setNoteFormId={setNoteFormId}
                     teamMembers={teamMembers}
+                    isAllTeams={isAllTeams}
+                    filterTeam={filterTeam}
                   />
                 );
               })}
@@ -332,11 +428,121 @@ export default function MatchLog({ data, initialFilters, matchNotes, onSaveNote 
   );
 }
 
-function MatchRow({ row, isExpanded, onToggle, playersByMatch, matchMap, colCount, matchNotes, onSaveNote, noteFormId, setNoteFormId, teamMembers }) {
+function MatchRow({ row, isExpanded, onToggle, playersByMatch, matchMap, colCount, matchNotes, onSaveNote, noteFormId, setNoteFormId, teamMembers, isAllTeams, filterTeam }) {
   const r = row;
-  const resultColor = r.result === 'W' ? 'var(--color-win)' : r.result === 'L' ? 'var(--color-loss)' : 'var(--color-draw)';
   const hasNote = matchNotes?.has(r.match_id);
   const showNoteForm = noteFormId === r.match_id;
+
+  if (isAllTeams) {
+    const redWon = r.score_red > r.score_blue;
+    const blueWon = r.score_blue > r.score_red;
+    const isDraw = r.score_red === r.score_blue;
+
+    return (
+      <>
+        <tr
+          onClick={onToggle}
+          className="cursor-pointer"
+          style={{ backgroundColor: isExpanded ? 'var(--color-surface-hover)' : undefined }}
+        >
+          <td className="px-3 py-1.5 border-b" style={{ borderColor: 'var(--color-border)' }}>
+            {hasNote && <span title="Has notes">{'\uD83D\uDCDD'} </span>}
+            {r.date_local}
+          </td>
+          <td className="px-3 py-1.5 border-b" style={{ borderColor: 'var(--color-border)' }}>
+            {r.map}
+          </td>
+          <td
+            className="px-3 py-1.5 border-b"
+            style={{ borderColor: 'var(--color-border)', fontWeight: redWon ? 600 : 400 }}
+          >
+            {r.team_red}
+          </td>
+          <td
+            className="px-3 py-1.5 border-b font-semibold"
+            style={{
+              borderColor: 'var(--color-border)',
+              color: redWon ? 'var(--color-win)' : blueWon ? 'var(--color-loss)' : isDraw ? 'var(--color-draw)' : undefined,
+            }}
+          >
+            {r.score_red}
+          </td>
+          <td
+            className="px-3 py-1.5 border-b font-semibold"
+            style={{
+              borderColor: 'var(--color-border)',
+              color: blueWon ? 'var(--color-win)' : redWon ? 'var(--color-loss)' : isDraw ? 'var(--color-draw)' : undefined,
+            }}
+          >
+            {r.score_blue}
+          </td>
+          <td
+            className="px-3 py-1.5 border-b"
+            style={{ borderColor: 'var(--color-border)', fontWeight: blueWon ? 600 : 400 }}
+          >
+            {r.team_blue}
+          </td>
+          <td className="px-3 py-1.5 border-b" style={{ borderColor: 'var(--color-border)' }}>
+            <a
+              href={r.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="text-xs underline"
+              style={{ color: 'var(--color-accent)' }}
+            >
+              qllr
+            </a>
+          </td>
+        </tr>
+        {isExpanded && (
+          <tr>
+            <td colSpan={colCount} style={{ backgroundColor: 'var(--color-bg)' }}>
+              <ExpandedDetail
+                matchId={r.match_id}
+                playersByMatch={playersByMatch}
+                match={matchMap.get(r.match_id)}
+                isAllTeams
+              />
+              <div className="px-4 pb-3">
+                {hasNote && !showNoteForm && (
+                  <NoteDisplay note={matchNotes.get(r.match_id)} />
+                )}
+                {showNoteForm ? (
+                  <NoteForm
+                    matchId={r.match_id}
+                    dateLocal={r.date_local}
+                    map={r.map}
+                    existingNote={matchNotes?.get(r.match_id)}
+                    onSave={(note) => {
+                      onSaveNote(note);
+                      setNoteFormId(null);
+                    }}
+                    onCancel={() => setNoteFormId(null)}
+                  />
+                ) : (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setNoteFormId(r.match_id); }}
+                    className="text-xs px-3 py-1 rounded cursor-pointer mt-1"
+                    style={{
+                      backgroundColor: 'var(--color-surface)',
+                      color: 'var(--color-accent)',
+                      border: '1px solid var(--color-border)',
+                    }}
+                  >
+                    {hasNote ? 'Edit Note' : 'Add Note'}
+                  </button>
+                )}
+              </div>
+            </td>
+          </tr>
+        )}
+      </>
+    );
+  }
+
+  // Team-specific perspective view
+  const resultColor = r.result === 'W' ? 'var(--color-win)' : r.result === 'L' ? 'var(--color-loss)' : 'var(--color-draw)';
 
   return (
     <>
@@ -406,6 +612,7 @@ function MatchRow({ row, isExpanded, onToggle, playersByMatch, matchMap, colCoun
               side={r.side}
               playersByMatch={playersByMatch}
               match={matchMap.get(r.match_id)}
+              teamName={filterTeam}
             />
             <div className="px-4 pb-3">
               {/* Existing note display */}
@@ -567,7 +774,7 @@ function NoteForm({ matchId, dateLocal, map, existingNote, onSave, onCancel }) {
             style={inputStyle}
           >
             {FORMATION_OPTIONS.map((f) => (
-              <option key={f} value={f}>{f || '— none —'}</option>
+              <option key={f} value={f}>{f || '\u2014 none \u2014'}</option>
             ))}
           </select>
         </div>
@@ -582,7 +789,7 @@ function NoteForm({ matchId, dateLocal, map, existingNote, onSave, onCancel }) {
             style={inputStyle}
           >
             {ROTATION_OPTIONS.map((r) => (
-              <option key={r} value={r}>{r || '— none —'}</option>
+              <option key={r} value={r}>{r || '\u2014 none \u2014'}</option>
             ))}
           </select>
         </div>
@@ -668,18 +875,8 @@ function NoteForm({ matchId, dateLocal, map, existingNote, onSave, onCancel }) {
   );
 }
 
-function ExpandedDetail({ matchId, side, playersByMatch, match }) {
+function ExpandedDetail({ matchId, side, playersByMatch, match, isAllTeams, teamName }) {
   const allPlayers = playersByMatch.get(matchId) || [];
-  const wbPlayers = allPlayers.filter((p) => p.side === side);
-  const oppPlayers = allPlayers.filter((p) => p.side !== side);
-
-  // Determine the expected team for each side
-  const wbTeam = match
-    ? (side === 'red' ? match.team_red : match.team_blue)
-    : null;
-  const oppTeam = match
-    ? (side === 'red' ? match.team_blue : match.team_red)
-    : null;
 
   const headers = ['Player', 'Frags', 'Deaths', 'K/D', 'Caps', 'Def', 'DPM', 'Net Dmg'];
 
@@ -748,9 +945,33 @@ function ExpandedDetail({ matchId, side, playersByMatch, match }) {
     );
   }
 
+  if (isAllTeams) {
+    const redPlayers = allPlayers.filter((p) => p.side === 'red');
+    const bluePlayers = allPlayers.filter((p) => p.side === 'blue');
+    const redTeam = match?.team_red || 'Red';
+    const blueTeam = match?.team_blue || 'Blue';
+
+    return (
+      <div className="py-2">
+        {renderTable(redPlayers, redTeam, redTeam)}
+        {renderTable(bluePlayers, blueTeam, blueTeam)}
+      </div>
+    );
+  }
+
+  const wbPlayers = allPlayers.filter((p) => p.side === side);
+  const oppPlayers = allPlayers.filter((p) => p.side !== side);
+
+  const ownTeam = match
+    ? (side === 'red' ? match.team_red : match.team_blue)
+    : null;
+  const oppTeam = match
+    ? (side === 'red' ? match.team_blue : match.team_red)
+    : null;
+
   return (
     <div className="py-2">
-      {renderTable(wbPlayers, 'wAnnaBees', wbTeam)}
+      {renderTable(wbPlayers, teamName || 'Team', ownTeam)}
       {renderTable(oppPlayers, 'Opponent', oppTeam)}
     </div>
   );
