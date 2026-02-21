@@ -273,11 +273,19 @@ export function mergeRoles(playerRows, roles, normalizeNick, playerRegistry) {
     return lower;
   }
 
-  // Build lookup by match_id + resolved canonical
+  // Build lookup by match_id + resolved canonical, detect duplicates
   const roleMap = new Map();
+  let duplicateRoles = 0;
   for (const r of roles) {
     const resolvedName = resolveRoleName(r.canonical);
     const key = `${r.match_id}::${resolvedName}`;
+    if (roleMap.has(key)) {
+      const existing = roleMap.get(key);
+      console.warn(
+        `[mergeRoles] Duplicate role for ${key}: "${existing.role_parsed}" overwritten by "${r.role_parsed}"`
+      );
+      duplicateRoles++;
+    }
     roleMap.set(key, r);
   }
 
@@ -289,4 +297,6 @@ export function mergeRoles(playerRows, roles, normalizeNick, playerRegistry) {
       row.role_parsed = role.role_parsed;
     }
   }
+
+  return { duplicateRoles };
 }

@@ -20,8 +20,11 @@ export default function DataHealth({ data }) {
     rolesMerged,
     rolesLinkedByFallback,
     rolesStillUnlinked,
+    duplicateRoles,
+    durationParseErrors,
     pairStats,
     lineupStats,
+    scopeDate,
   } = data;
 
   // Format breakdown
@@ -87,7 +90,7 @@ export default function DataHealth({ data }) {
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         <StatCard label="Total Matches" value={allMatches.length} />
-        <StatCard label={<>In Scope <InfoTip text="Matches from 2025-12-01 onward (current competitive season)." /></>} value={matches.length} />
+        <StatCard label={<>In Scope <InfoTip text={`Matches from ${scopeDate} onward (current competitive season).`} /></>} value={matches.length} />
         <StatCard label="Excluded (pre-scope)" value={allMatches.length - matches.length} />
         <StatCard label="Player Rows (scoped)" value={playerRows.length} />
       </div>
@@ -198,6 +201,7 @@ export default function DataHealth({ data }) {
             ['Linked by fallback (date/map/score)', rolesLinkedByFallback ?? 0],
             ['Orphaned (no match data)', orphanedRoles ? orphanedRoles.length : 0],
             ['Still unlinked (date exists, match failed)', unlinkedRoles.length],
+            ['Duplicate role entries (last wins)', duplicateRoles ?? 0],
           ]}
           headers={['Metric', 'Count']}
         />
@@ -245,6 +249,7 @@ export default function DataHealth({ data }) {
             ['Pair stats entries', pairStats.length],
             ['Lineup combinations', lineupStats.length],
             ['Date range', dateRange],
+            ['Duration parse errors', durationParseErrors ?? 0],
           ]}
           headers={['Metric', 'Value']}
         />

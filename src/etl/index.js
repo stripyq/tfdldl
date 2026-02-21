@@ -8,7 +8,7 @@ import { parseMatches } from './parseMatches.js';
 import { resolveTeams } from './resolveTeams.js';
 import { classifySides } from './classifySides.js';
 import { datasetFlags } from './datasetFlags.js';
-import { computeStats } from './computeStats.js';
+import { computeStats, buildPairStats, buildLineupStats } from './computeStats.js';
 import { linkUnlinkedRoles, parseRoles, mergeRoles } from './parseRoles.js';
 import { buildNickNormalizer } from './normalizeNick.js';
 
@@ -23,7 +23,7 @@ import { buildNickNormalizer } from './normalizeNick.js';
  */
 export function processData(rawJson, playerRegistry, teamConfig, manualRoles) {
   // Step 1: Parse raw matches into normalized structures (needs teamConfig for clan_tag_patterns)
-  const { matches, playerRows, unresolvedPlayers } = parseMatches(rawJson, playerRegistry, teamConfig);
+  const { matches, playerRows, unresolvedPlayers, durationParseErrors } = parseMatches(rawJson, playerRegistry, teamConfig);
 
   // Step 2: Resolve team membership per player per era
   resolveTeams(playerRows, matches, playerRegistry, teamConfig);
@@ -34,29 +34,28 @@ export function processData(rawJson, playerRegistry, teamConfig, manualRoles) {
   // Step 4: Add dataset qualification flags
   datasetFlags(matches);
 
-  // Step 5: Compute derived stats (player, team, pair, lineup)
-  const { teamMatchRows, pairStats, lineupStats } = computeStats(
-    matches,
-    playerRows,
-    teamConfig
-  );
+  // Step 5: Compute derived stats (player, team match rows)
+  const { teamMatchRows } = computeStats(matches, playerRows);
 
-  // Step 6a: Link unlinked manual role entries by (date, map, score) fallback
+  // Step 6a: Clone manualRoles to avoid mutating config objects across uploads
+  const rolesCopy = manualRoles.map((r) => ({ ...r }));
+
+  // Step 6b: Link unlinked manual role entries by (date, map, score) fallback
   const {
     linkedCount: rolesLinkedByFallback,
     orphanedRoles,
     stillUnlinked: rolesStillUnlinked,
-  } = linkUnlinkedRoles(manualRoles, matches);
+  } = linkUnlinkedRoles(rolesCopy, matches);
 
-  // Step 6b: Parse and merge role annotations (includes newly linked + orphaned)
+  // Step 6c: Parse and merge role annotations (includes newly linked + orphaned)
   // Parse ALL manual roles (linked, orphaned, and still-unlinked) so role data is available
-  const roles = parseRoles(manualRoles, teamConfig);
+  const roles = parseRoles(rolesCopy, teamConfig);
   const normalizeNick = buildNickNormalizer(teamConfig.clan_tag_patterns);
-  mergeRoles(playerRows, roles, normalizeNick, playerRegistry);
+  const { duplicateRoles } = mergeRoles(playerRows, roles, normalizeNick, playerRegistry);
 
   // Count entries still unlinked (no match_id) after fallback — excludes orphaned
   const matchIdSet = new Set(matches.map((m) => m.match_id));
-  const unlinkedRoles = manualRoles.filter(
+  const unlinkedRoles = rolesCopy.filter(
     (r) => !matchIdSet.has(r.match_id) && !orphanedRoles.includes(r)
   );
 
@@ -65,6 +64,10 @@ export function processData(rawJson, playerRegistry, teamConfig, manualRoles) {
   const scopedMatchIds = new Set(scopedMatches.map((m) => m.match_id));
   const scopedPlayerRows = playerRows.filter((p) => scopedMatchIds.has(p.match_id));
   const scopedTeamMatchRows = teamMatchRows.filter((r) => scopedMatchIds.has(r.match_id));
+
+  // Step 7: Pair and lineup stats from scoped data only
+  const pairStats = buildPairStats(scopedTeamMatchRows, teamConfig.focus_team, scopedPlayerRows);
+  const lineupStats = buildLineupStats(scopedTeamMatchRows, teamConfig.focus_team);
 
   // Top unresolved nick counts (scoped)
   const unresolvedNickCounts = {};
@@ -91,6 +94,9 @@ export function processData(rawJson, playerRegistry, teamConfig, manualRoles) {
     allMatches: matches,
     allPlayerRows: playerRows,
     allTeamMatchRows: teamMatchRows,
+    // Config values for views
+    focusTeam: teamConfig.focus_team,
+    scopeDate: teamConfig.scope_date,
     // Diagnostics
     unresolvedPlayers: [...unresolvedPlayers],
     unresolvedNickCounts,
@@ -100,6 +106,8 @@ export function processData(rawJson, playerRegistry, teamConfig, manualRoles) {
     rolesMerged: playerRows.filter((p) => p.role_parsed !== null).length,
     rolesLinkedByFallback,
     rolesStillUnlinked,
+    duplicateRoles,
+    durationParseErrors,
     dataHash,
   };
 }
