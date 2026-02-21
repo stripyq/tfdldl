@@ -17,7 +17,7 @@ const WEAPON_COLORS = {
   Other: '#888888',
 };
 
-export default function PlayerCards({ data, onNavigateMatchLog }) {
+export default function PlayerCards({ data, onNavigateMatchLog, matchNotes }) {
   const { playerRows, teamMatchRows, matches } = data;
 
   // Build match lookup
@@ -100,6 +100,7 @@ export default function PlayerCards({ data, onNavigateMatchLog }) {
           teamMatchRows={teamMatchRows}
           matchMap={matchMap}
           onNavigateMatchLog={onNavigateMatchLog}
+          matchNotes={matchNotes}
         />
         {compareMode && (
           <PlayerCard
@@ -108,6 +109,7 @@ export default function PlayerCards({ data, onNavigateMatchLog }) {
             teamMatchRows={teamMatchRows}
             matchMap={matchMap}
             onNavigateMatchLog={onNavigateMatchLog}
+            matchNotes={matchNotes}
           />
         )}
       </div>
@@ -139,7 +141,7 @@ function PlayerSelect({ label, players, value, onChange }) {
   );
 }
 
-function PlayerCard({ name, playerRows, teamMatchRows, matchMap, onNavigateMatchLog }) {
+function PlayerCard({ name, playerRows, teamMatchRows, matchMap, onNavigateMatchLog, matchNotes }) {
   const stats = useMemo(() => {
     if (!name) return null;
 
@@ -200,13 +202,14 @@ function PlayerCard({ name, playerRows, teamMatchRows, matchMap, onNavigateMatch
       totalDmg += p.dmg_dealt;
 
       const map = match.map;
-      if (!mapData[map]) mapData[map] = { games: 0, wins: 0, losses: 0, dpm: 0, frags: 0, deaths: 0 };
+      if (!mapData[map]) mapData[map] = { games: 0, wins: 0, losses: 0, dpm: 0, frags: 0, deaths: 0, noted: 0 };
       mapData[map].games++;
       if (isWin) mapData[map].wins++;
       if (isLoss) mapData[map].losses++;
       mapData[map].dpm += p.dpm;
       mapData[map].frags += p.frags;
       mapData[map].deaths += p.deaths;
+      if (matchNotes?.has(p.match_id)) mapData[map].noted++;
     }
 
     const otherDmg = totalDmg - totalRl - totalRg - totalSg - totalLg - totalPg;
@@ -229,6 +232,7 @@ function PlayerCard({ name, playerRows, teamMatchRows, matchMap, onNavigateMatch
         winPct: d.games > 0 ? (d.wins / d.games) * 100 : 0,
         avgDpm: d.games > 0 ? d.dpm / d.games : 0,
         avgKd: d.deaths > 0 ? d.frags / d.deaths : d.frags,
+        noted: d.noted,
       }))
       .sort((a, b) => b.games - a.games);
 
@@ -248,7 +252,7 @@ function PlayerCard({ name, playerRows, teamMatchRows, matchMap, onNavigateMatch
       weaponProfile,
       mapBreakdown,
     };
-  }, [name, playerRows, teamMatchRows, matchMap]);
+  }, [name, playerRows, teamMatchRows, matchMap, matchNotes]);
 
   const exportData = stats ? stats.mapBreakdown.map((m) => ({
     player: name,
@@ -371,7 +375,7 @@ function PlayerCard({ name, playerRows, teamMatchRows, matchMap, onNavigateMatch
         <table className="w-full text-sm">
           <thead>
             <tr>
-              {['Map', 'G', 'W-L', 'Win%', 'DPM', 'K/D'].map((h) => (
+              {['Map', 'G', 'W-L', 'Win%', 'DPM', 'K/D', 'Notes'].map((h) => (
                 <th
                   key={h}
                   className="text-left pb-2 border-b font-medium"
@@ -428,6 +432,9 @@ function PlayerCard({ name, playerRows, teamMatchRows, matchMap, onNavigateMatch
                 </td>
                 <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)' }}>
                   {m.avgKd.toFixed(2)}
+                </td>
+                <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-muted)' }}>
+                  {m.noted > 0 ? m.noted : '\u2014'}
                 </td>
               </tr>
             ))}

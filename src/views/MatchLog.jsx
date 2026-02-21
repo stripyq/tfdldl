@@ -1,6 +1,7 @@
 /**
  * MatchLog view — filterable, sortable match table with expandable per-player detail.
  * Supports external filter presets via initialFilters prop (for cross-view navigation).
+ * Supports match annotations: inline note form, note icon, tag filter.
  */
 
 import { useState, useMemo } from 'react';
@@ -8,7 +9,7 @@ import ExportButton from '../components/ExportButton.jsx';
 
 const FOCUS = 'wAnnaBees';
 
-export default function MatchLog({ data, initialFilters }) {
+export default function MatchLog({ data, initialFilters, matchNotes, onSaveNote }) {
   const { matches, teamMatchRows, playerRows } = data;
 
   // Build lookup maps
@@ -45,6 +46,20 @@ export default function MatchLog({ data, initialFilters }) {
     }).sort((a, b) => (b.date_local || '').localeCompare(a.date_local || '') || (b.datetime_local || '').localeCompare(a.datetime_local || ''));
   }, [teamMatchRows, matchMap]);
 
+  // Collect all unique tags from notes
+  const allTags = useMemo(() => {
+    if (!matchNotes || matchNotes.size === 0) return [];
+    const tags = new Set();
+    for (const note of matchNotes.values()) {
+      if (note.tags && Array.isArray(note.tags)) {
+        for (const t of note.tags) {
+          if (t.trim()) tags.add(t.trim());
+        }
+      }
+    }
+    return [...tags].sort();
+  }, [matchNotes]);
+
   // Extract filter options
   const mapOptions = useMemo(
     () => [...new Set(allRows.map((r) => r.map))].sort(),
@@ -62,9 +77,11 @@ export default function MatchLog({ data, initialFilters }) {
   const [filterDataset, setFilterDataset] = useState(initialFilters?.dataset || (initialFilters ? 'all' : 'loose'));
   const [filterLineup, setFilterLineup] = useState(initialFilters?.lineup || null);
   const [filterPlayer, setFilterPlayer] = useState(initialFilters?.player || null);
+  const [filterTag, setFilterTag] = useState('all');
   const [sortCol, setSortCol] = useState('date');
   const [sortAsc, setSortAsc] = useState(false);
   const [expandedId, setExpandedId] = useState(null);
+  const [noteFormId, setNoteFormId] = useState(null);
 
   // Apply filters
   const filtered = useMemo(() => {
@@ -77,9 +94,15 @@ export default function MatchLog({ data, initialFilters }) {
       if (filterDataset === 'h2h' && !r.qualifies_h2h) return false;
       if (filterLineup && r.lineup_key !== filterLineup) return false;
       if (filterPlayer && !r.player_names.includes(filterPlayer)) return false;
+      if (filterTag !== 'all') {
+        const note = matchNotes?.get(r.match_id);
+        if (!note) return false;
+        const tags = Array.isArray(note.tags) ? note.tags.map((t) => t.trim()) : [];
+        if (!tags.includes(filterTag)) return false;
+      }
       return true;
     });
-  }, [allRows, filterMap, filterOpp, filterResult, filterDataset, filterLineup, filterPlayer]);
+  }, [allRows, filterMap, filterOpp, filterResult, filterDataset, filterLineup, filterPlayer, filterTag, matchNotes]);
 
   // Apply sorting
   const sorted = useMemo(() => {
@@ -183,6 +206,14 @@ export default function MatchLog({ data, initialFilters }) {
             { value: 'D', label: 'Draws' },
           ]}
         />
+        {allTags.length > 0 && (
+          <FilterSelect label="Tag" value={filterTag} onChange={setFilterTag}
+            options={[
+              { value: 'all', label: 'All Tags' },
+              ...allTags.map((t) => ({ value: t, label: t })),
+            ]}
+          />
+        )}
       </div>
 
       {/* Active special filter badges */}
@@ -263,6 +294,10 @@ export default function MatchLog({ data, initialFilters }) {
                     playersByMatch={playersByMatch}
                     matchMap={matchMap}
                     colCount={columns.length + 2}
+                    matchNotes={matchNotes}
+                    onSaveNote={onSaveNote}
+                    noteFormId={noteFormId}
+                    setNoteFormId={setNoteFormId}
                   />
                 );
               })}
@@ -274,9 +309,11 @@ export default function MatchLog({ data, initialFilters }) {
   );
 }
 
-function MatchRow({ row, isExpanded, onToggle, playersByMatch, matchMap, colCount }) {
+function MatchRow({ row, isExpanded, onToggle, playersByMatch, matchMap, colCount, matchNotes, onSaveNote, noteFormId, setNoteFormId }) {
   const r = row;
   const resultColor = r.result === 'W' ? 'var(--color-win)' : r.result === 'L' ? 'var(--color-loss)' : 'var(--color-draw)';
+  const hasNote = matchNotes?.has(r.match_id);
+  const showNoteForm = noteFormId === r.match_id;
 
   return (
     <>
@@ -286,6 +323,7 @@ function MatchRow({ row, isExpanded, onToggle, playersByMatch, matchMap, colCoun
         style={{ backgroundColor: isExpanded ? 'var(--color-surface-hover)' : undefined }}
       >
         <td className="px-3 py-1.5 border-b" style={{ borderColor: 'var(--color-border)' }}>
+          {hasNote && <span title="Has notes">{'\uD83D\uDCDD'} </span>}
           {r.date_local}
         </td>
         <td className="px-3 py-1.5 border-b" style={{ borderColor: 'var(--color-border)' }}>
@@ -334,10 +372,212 @@ function MatchRow({ row, isExpanded, onToggle, playersByMatch, matchMap, colCoun
               playersByMatch={playersByMatch}
               match={matchMap.get(r.match_id)}
             />
+            <div className="px-4 pb-3">
+              {/* Existing note display */}
+              {hasNote && !showNoteForm && (
+                <NoteDisplay note={matchNotes.get(r.match_id)} />
+              )}
+              {/* Note form */}
+              {showNoteForm ? (
+                <NoteForm
+                  matchId={r.match_id}
+                  dateLocal={r.date_local}
+                  map={r.map}
+                  existingNote={matchNotes?.get(r.match_id)}
+                  onSave={(note) => {
+                    onSaveNote(note);
+                    setNoteFormId(null);
+                  }}
+                  onCancel={() => setNoteFormId(null)}
+                />
+              ) : (
+                <button
+                  onClick={(e) => { e.stopPropagation(); setNoteFormId(r.match_id); }}
+                  className="text-xs px-3 py-1 rounded cursor-pointer mt-1"
+                  style={{
+                    backgroundColor: 'var(--color-surface)',
+                    color: 'var(--color-accent)',
+                    border: '1px solid var(--color-border)',
+                  }}
+                >
+                  {hasNote ? 'Edit Note' : 'Add Note'}
+                </button>
+              )}
+            </div>
           </td>
         </tr>
       )}
     </>
+  );
+}
+
+function NoteDisplay({ note }) {
+  return (
+    <div
+      className="rounded p-3 mb-2 text-xs"
+      style={{
+        backgroundColor: 'var(--color-surface)',
+        border: '1px solid var(--color-border)',
+      }}
+    >
+      {note.comment && (
+        <div className="mb-1">
+          <span style={{ color: 'var(--color-text-muted)' }}>Comment: </span>
+          {note.comment}
+        </div>
+      )}
+      {note.enemy_notes && (
+        <div className="mb-1">
+          <span style={{ color: 'var(--color-text-muted)' }}>Enemy notes: </span>
+          {note.enemy_notes}
+        </div>
+      )}
+      {note.our_adjustments && (
+        <div className="mb-1">
+          <span style={{ color: 'var(--color-text-muted)' }}>Our adjustments: </span>
+          {note.our_adjustments}
+        </div>
+      )}
+      {note.tags && note.tags.length > 0 && (
+        <div className="flex gap-1 mt-1 flex-wrap">
+          {note.tags.map((t) => (
+            <span
+              key={t}
+              className="px-1.5 py-0.5 rounded text-[10px]"
+              style={{ backgroundColor: 'var(--color-surface-hover)', color: 'var(--color-accent)' }}
+            >
+              {t}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function NoteForm({ matchId, dateLocal, map, existingNote, onSave, onCancel }) {
+  const [comment, setComment] = useState(existingNote?.comment || '');
+  const [enemyNotes, setEnemyNotes] = useState(existingNote?.enemy_notes || '');
+  const [ourAdj, setOurAdj] = useState(existingNote?.our_adjustments || '');
+  const [tagsStr, setTagsStr] = useState(
+    existingNote?.tags ? existingNote.tags.join(', ') : ''
+  );
+
+  function handleSubmit(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    const tags = tagsStr
+      .split(',')
+      .map((t) => t.trim())
+      .filter(Boolean);
+    onSave({
+      match_id: matchId,
+      date_local: dateLocal,
+      map,
+      comment,
+      enemy_notes: enemyNotes,
+      our_adjustments: ourAdj,
+      tags,
+    });
+  }
+
+  const inputStyle = {
+    backgroundColor: 'var(--color-bg)',
+    color: 'var(--color-text)',
+    border: '1px solid var(--color-border)',
+  };
+
+  return (
+    <form
+      onClick={(e) => e.stopPropagation()}
+      onSubmit={handleSubmit}
+      className="rounded p-3 mt-2"
+      style={{
+        backgroundColor: 'var(--color-surface)',
+        border: '1px solid var(--color-border)',
+      }}
+    >
+      <p className="text-xs font-medium mb-2" style={{ color: 'var(--color-accent)' }}>
+        Match Note &mdash; {dateLocal} {map}
+      </p>
+      <div className="grid grid-cols-1 gap-2 mb-2">
+        <div>
+          <label className="text-[10px] block mb-0.5" style={{ color: 'var(--color-text-muted)' }}>
+            Comment
+          </label>
+          <textarea
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            rows={2}
+            className="w-full rounded px-2 py-1 text-xs"
+            style={inputStyle}
+            placeholder="General game note..."
+          />
+        </div>
+        <div>
+          <label className="text-[10px] block mb-0.5" style={{ color: 'var(--color-text-muted)' }}>
+            Enemy notes
+          </label>
+          <textarea
+            value={enemyNotes}
+            onChange={(e) => setEnemyNotes(e.target.value)}
+            rows={2}
+            className="w-full rounded px-2 py-1 text-xs"
+            style={inputStyle}
+            placeholder="What the opponent did..."
+          />
+        </div>
+        <div>
+          <label className="text-[10px] block mb-0.5" style={{ color: 'var(--color-text-muted)' }}>
+            Our adjustments
+          </label>
+          <textarea
+            value={ourAdj}
+            onChange={(e) => setOurAdj(e.target.value)}
+            rows={2}
+            className="w-full rounded px-2 py-1 text-xs"
+            style={inputStyle}
+            placeholder="What we should do differently..."
+          />
+        </div>
+        <div>
+          <label className="text-[10px] block mb-0.5" style={{ color: 'var(--color-text-muted)' }}>
+            Tags (comma-separated)
+          </label>
+          <input
+            type="text"
+            value={tagsStr}
+            onChange={(e) => setTagsStr(e.target.value)}
+            className="w-full rounded px-2 py-1 text-xs"
+            style={inputStyle}
+            placeholder="e.g. comeback, choke, strat-change"
+          />
+        </div>
+      </div>
+      <div className="flex gap-2">
+        <button
+          type="submit"
+          className="text-xs px-3 py-1 rounded cursor-pointer font-medium"
+          style={{
+            backgroundColor: 'var(--color-accent)',
+            color: 'var(--color-bg)',
+          }}
+        >
+          Save
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="text-xs px-3 py-1 rounded cursor-pointer"
+          style={{
+            backgroundColor: 'var(--color-surface-hover)',
+            color: 'var(--color-text-muted)',
+          }}
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
   );
 }
 
