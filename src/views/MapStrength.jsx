@@ -504,7 +504,7 @@ function ConfidenceBadge({ games }) {
         backgroundColor: isLow ? 'rgba(249, 115, 22, 0.15)' : 'rgba(234, 179, 8, 0.15)',
         color: isLow ? 'rgb(249, 115, 22)' : 'rgb(234, 179, 8)',
       }}
-      title={isLow ? 'Low sample size (3-4 games)' : 'Limited sample size (5-7 games)'}
+      title={isLow ? `Low sample size: only ${games} game${games !== 1 ? 's' : ''}. Patterns may not be reliable.` : `Limited sample size: only ${games} games. Trends are suggestive, not definitive.`}
     >
       {'\u26A0'} {isLow ? 'Low sample' : 'Limited'}
     </span>

@@ -652,7 +652,7 @@ function OpponentBreakdown({ rows, onNavigateMatchLog }) {
                 }}
               >
                 {o.winPct.toFixed(0)}%
-                {o.games < 3 && <span className="sample-warn" title="Small sample size">{'\u26A0'}</span>}
+                {o.games < 3 && <span className="sample-warn" title={`Low sample size: only ${o.games} game${o.games !== 1 ? 's' : ''}. Patterns may not be reliable.`}>{'\u26A0'}</span>}
               </td>
             </tr>
           ))}

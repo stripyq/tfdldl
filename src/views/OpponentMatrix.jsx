@@ -379,7 +379,7 @@ export default function OpponentMatrix({ data, onNavigateMatchLog }) {
                           >
                             {cell.wins}-{cell.losses}
                           </span>
-                          {cell.games < 3 && <span className="sample-warn" title="Small sample size">{'\u26A0'}</span>}
+                          {cell.games < 3 && <span className="sample-warn" title={`Low sample size: only ${cell.games} game${cell.games !== 1 ? 's' : ''}. Patterns may not be reliable.`}>{'\u26A0'}</span>}
                           <br />
                           <span className="text-xs" style={{
                             color: dev > 10 ? 'var(--color-win)' : dev < -10 ? 'var(--color-loss)' : 'var(--color-text-muted)',
@@ -564,7 +564,7 @@ export default function OpponentMatrix({ data, onNavigateMatchLog }) {
                           }}
                         >
                           {r.h2hWinPct !== null ? `${r.h2hWinPct.toFixed(0)}%` : '—'}
-                          {r.h2hGames > 0 && r.h2hGames < 3 && <span className="sample-warn" title="Small sample size">{'\u26A0'}</span>}
+                          {r.h2hGames > 0 && r.h2hGames < 3 && <span className="sample-warn" title={`Low sample size: only ${r.h2hGames} game${r.h2hGames !== 1 ? 's' : ''}. Patterns may not be reliable.`}>{'\u26A0'}</span>}
                         </td>
                         <td
                           className="py-1.5 border-b"
@@ -582,7 +582,7 @@ export default function OpponentMatrix({ data, onNavigateMatchLog }) {
                           }}
                         >
                           {r.oppGlobal ? `${r.oppGlobal.winPct.toFixed(0)}%` : '—'}
-                          {r.oppGlobal && r.oppGlobal.games < 3 && <span className="sample-warn" title="Small sample size">{'\u26A0'}</span>}
+                          {r.oppGlobal && r.oppGlobal.games < 3 && <span className="sample-warn" title={`Low sample size: only ${r.oppGlobal.games} game${r.oppGlobal.games !== 1 ? 's' : ''}. Patterns may not be reliable.`}>{'\u26A0'}</span>}
                         </td>
                         <td
                           className="py-1.5 border-b"
