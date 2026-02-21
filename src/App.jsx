@@ -67,12 +67,32 @@ export default function App() {
     URL.revokeObjectURL(url);
   }, [mergedNotes]);
 
+  const [clipboardCopied, setClipboardCopied] = useState(false);
+  const handleCopyNotesDiscord = useCallback(() => {
+    const notes = [...sessionNotes.values()];
+    if (notes.length === 0) return;
+    const lines = notes.map((n) => {
+      const parts = [`\uD83D\uDCDD Match Notes`];
+      parts.push(`${n.date_local || '?'} | ${n.map || '?'}`);
+      if (n.comment) parts.push(`Comment: ${n.comment}`);
+      if (n.enemy_notes) parts.push(`Enemy: ${n.enemy_notes}`);
+      if (n.our_adjustments) parts.push(`Adjustments: ${n.our_adjustments}`);
+      if (n.tags && n.tags.length > 0) parts.push(`Tags: ${n.tags.join(', ')}`);
+      return parts.join('\n');
+    });
+    const text = lines.join('\n\n');
+    navigator.clipboard.writeText(text).then(() => {
+      setClipboardCopied(true);
+      setTimeout(() => setClipboardCopied(false), 2000);
+    });
+  }, [sessionNotes]);
+
   function navigateToMatchLog(filters) {
     setMatchLogFilters({ ...filters, _ts: Date.now() });
     setActiveView('matches');
   }
 
-  // Load config files on mount
+  // Load config files on mount, then try auto-loading default match data
   useEffect(() => {
     async function loadConfigs() {
       try {
@@ -87,8 +107,23 @@ export default function App() {
         const teamConfig = await teamConfigRes.json();
         const manualRoles = await rolesRes.json();
         const matchNotes = await notesRes.json();
-        setConfigs({ playerRegistry, teamConfig, manualRoles });
+        const loadedConfigs = { playerRegistry, teamConfig, manualRoles };
+        setConfigs(loadedConfigs);
         setLoadedNotes(Array.isArray(matchNotes) ? matchNotes : []);
+
+        // Try auto-loading baked-in default match data
+        try {
+          const defaultRes = await fetch(`${base}data/matches_default.json`);
+          if (defaultRes.ok) {
+            const rawJson = await defaultRes.json();
+            if (Array.isArray(rawJson) && rawJson.length > 0) {
+              const result = processData(rawJson, loadedConfigs.playerRegistry, loadedConfigs.teamConfig, loadedConfigs.manualRoles);
+              setData(result);
+            }
+          }
+        } catch {
+          // No default data file — show upload screen as before
+        }
       } catch (err) {
         setError(`Failed to load config files: ${err.message}`);
       }
@@ -201,6 +236,20 @@ export default function App() {
               title="Download all match notes as JSON"
             >
               Download match_notes.json
+            </button>
+          )}
+          {unsavedCount > 0 && (
+            <button
+              onClick={handleCopyNotesDiscord}
+              className="text-xs px-3 py-1 rounded cursor-pointer"
+              style={{
+                backgroundColor: 'var(--color-surface-hover)',
+                color: clipboardCopied ? 'var(--color-win)' : 'var(--color-text-muted)',
+                border: '1px solid var(--color-border)',
+              }}
+              title="Copy session notes as Discord-friendly text"
+            >
+              {clipboardCopied ? 'Copied!' : 'Copy for Discord'}
             </button>
           )}
           <button

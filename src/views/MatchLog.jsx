@@ -6,6 +6,7 @@
 
 import { useState, useMemo } from 'react';
 import ExportButton from '../components/ExportButton.jsx';
+import InfoTip from '../components/InfoTip.jsx';
 
 const FOCUS = 'wAnnaBees';
 
@@ -167,7 +168,7 @@ export default function MatchLog({ data, initialFilters, matchNotes, onSaveNote 
     { key: 'score_against', label: 'Opp' },
     { key: 'result', label: 'Result' },
     { key: 'opponent', label: 'Opponent' },
-    { key: 'opp_class', label: 'Class' },
+    { key: 'opp_class', label: <>Class <InfoTip text="FULL_TEAM = all 4 same team. Stack = 3 of 4 same team. Mix = no dominant team." /></> },
   ];
 
   return (

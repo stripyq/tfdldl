@@ -6,6 +6,7 @@
 import { useState, useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ReferenceLine } from 'recharts';
 import ExportButton from '../components/ExportButton.jsx';
+import InfoTip from '../components/InfoTip.jsx';
 
 const MIN_GAMES = 3;
 
@@ -119,7 +120,7 @@ export default function MapStrength({ data, onNavigateMatchLog }) {
     { key: 'avgCapDiff', label: 'Cap Diff' },
     { key: 'avgNetDmg', label: 'Net Dmg' },
     { key: 'avgDpm', label: 'DPM' },
-    { key: 'avgHhi', label: 'HHI' },
+    { key: 'avgHhi', label: <>HHI <InfoTip text="Damage concentration index. 0.25 = perfectly equal damage spread. Higher = one player doing most of the damage." /></> },
   ];
 
   function fmtCell(col, row) {
@@ -172,7 +173,12 @@ export default function MapStrength({ data, onNavigateMatchLog }) {
       </div>
 
       <p className="text-sm mb-4" style={{ color: 'var(--color-text-muted)' }}>
-        {mode === 'strict' ? 'Strict' : 'Loose'} dataset &middot; maps with {MIN_GAMES}+ games
+        {mode === 'strict' ? 'Strict' : 'Loose'} dataset
+        <InfoTip text={mode === 'strict'
+          ? 'One side is a full team AND the opponent has at least 3 players from the same team.'
+          : 'One side is a full team (4/4 same team). Opponent can be anyone.'}
+        />
+        {' '}&middot; maps with {MIN_GAMES}+ games
       </p>
 
       {sorted.length === 0 ? (
