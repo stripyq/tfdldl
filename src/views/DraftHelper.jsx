@@ -10,12 +10,12 @@ import { getStatColor } from '../utils/getStatColor.js';
 const MIN_H2H = 2;
 
 export default function DraftHelper({ data }) {
-  const { teamMatchRows } = data;
+  const { teamMatchRows, focusTeam, lineupStats } = data;
 
   // Focus team rows (loose qualification)
   const focusRows = useMemo(
-    () => teamMatchRows.filter((r) => r.team_name === 'wAnnaBees' && r.qualifies_loose),
-    [teamMatchRows]
+    () => teamMatchRows.filter((r) => r.team_name === focusTeam && r.qualifies_loose),
+    [teamMatchRows, focusTeam]
   );
 
   // Unique opponents sorted by game count
@@ -31,6 +31,32 @@ export default function DraftHelper({ data }) {
   }, [focusRows]);
 
   const [selectedOpp, setSelectedOpp] = useState('');
+  const [selectedLineup, setSelectedLineup] = useState('');
+
+  // Available lineups for selector (min 2 games)
+  const lineupOptions = useMemo(() => {
+    if (!lineupStats) return [];
+    return lineupStats
+      .filter((l) => l.games >= 2)
+      .sort((a, b) => b.games - a.games);
+  }, [lineupStats]);
+
+  // Per-map stats for selected lineup
+  const lineupMapStats = useMemo(() => {
+    if (!selectedLineup) return {};
+    const stats = {};
+    for (const r of focusRows) {
+      if (r.lineup_key !== selectedLineup) continue;
+      if (!stats[r.map]) stats[r.map] = { games: 0, wins: 0, losses: 0 };
+      stats[r.map].games++;
+      if (r.result === 'W') stats[r.map].wins++;
+      if (r.result === 'L') stats[r.map].losses++;
+    }
+    for (const s of Object.values(stats)) {
+      s.winPct = s.games > 0 ? (s.wins / s.games) * 100 : 0;
+    }
+    return stats;
+  }, [focusRows, selectedLineup]);
 
   // Global map stats (all opponents)
   const globalMapStats = useMemo(() => {
@@ -199,16 +225,22 @@ export default function DraftHelper({ data }) {
   }
 
   // Export data (after recLabel defined so compiler can inline)
-  const exportData = tableRows.map((r) => ({
+  const exportData = tableRows.map((r) => {
+    const lu = lineupMapStats[r.map];
+    return {
     map: r.map,
     wb_global_win_pct: r.global.winPct.toFixed(1),
     wb_global_record: `${r.global.wins}W-${r.global.losses}L`,
+    ...(selectedLineup ? {
+      lineup_win_pct: lu?.games >= 2 ? lu.winPct.toFixed(1) : '',
+      lineup_record: lu?.games >= 2 ? `${lu.wins}W-${lu.losses}L` : '',
+    } : {}),
     wb_vs_opp_win_pct: r.h2hWinPct !== null ? r.h2hWinPct.toFixed(1) : '',
     wb_vs_opp_record: r.h2h ? `${r.h2h.wins}W-${r.h2h.losses}L` : '',
     opp_global_win_pct: r.oppGlobal ? r.oppGlobal.winPct.toFixed(1) : '',
     opp_global_record: r.oppGlobal ? `${r.oppGlobal.wins}W-${r.oppGlobal.losses}L` : '',
     recommendation: recLabel(r.rec),
-  }));
+  };});
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
@@ -224,29 +256,58 @@ export default function DraftHelper({ data }) {
         )}
       </div>
 
-      {/* Opponent selector */}
-      <div className="mb-6">
-        <label
-          className="text-sm block mb-1"
-          style={{ color: 'var(--color-text-muted)' }}
-        >
-          Select Opponent
-        </label>
-        <select
-          value={selectedOpp}
-          onChange={(e) => setSelectedOpp(e.target.value)}
-          className="px-3 py-2 rounded text-sm"
-          style={{
-            backgroundColor: 'var(--color-surface)',
-            color: 'var(--color-text)',
-            border: '1px solid var(--color-border)',
-          }}
-        >
-          <option value="">— choose opponent —</option>
-          {opponents.map((opp) => (
-            <option key={opp} value={opp}>{opp}</option>
-          ))}
-        </select>
+      {/* Opponent + lineup selectors */}
+      <div className="flex flex-wrap gap-4 mb-6">
+        <div>
+          <label
+            className="text-sm block mb-1"
+            style={{ color: 'var(--color-text-muted)' }}
+          >
+            Select Opponent
+          </label>
+          <select
+            value={selectedOpp}
+            onChange={(e) => setSelectedOpp(e.target.value)}
+            className="px-3 py-2 rounded text-sm"
+            style={{
+              backgroundColor: 'var(--color-surface)',
+              color: 'var(--color-text)',
+              border: '1px solid var(--color-border)',
+            }}
+          >
+            <option value="">— choose opponent —</option>
+            {opponents.map((opp) => (
+              <option key={opp} value={opp}>{opp}</option>
+            ))}
+          </select>
+        </div>
+        {lineupOptions.length > 0 && (
+          <div>
+            <label
+              className="text-sm block mb-1"
+              style={{ color: 'var(--color-text-muted)' }}
+            >
+              Lineup Filter
+            </label>
+            <select
+              value={selectedLineup}
+              onChange={(e) => setSelectedLineup(e.target.value)}
+              className="px-3 py-2 rounded text-sm"
+              style={{
+                backgroundColor: 'var(--color-surface)',
+                color: 'var(--color-text)',
+                border: '1px solid var(--color-border)',
+              }}
+            >
+              <option value="">— all lineups —</option>
+              {lineupOptions.map((l) => (
+                <option key={l.lineup_key} value={l.lineup_key}>
+                  {l.player_names.join(' \u00B7 ')} ({l.games}g)
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       {/* Recommendations cards */}
@@ -334,6 +395,7 @@ export default function DraftHelper({ data }) {
                 {[
                   'Map',
                   'wB Global W%',
+                  ...(selectedLineup ? ['Lineup W%'] : []),
                   ...(selectedOpp ? ['wB vs Opp W%', 'wB vs Opp Record', 'Opp Global W%', 'Opp Global Record', 'Rec'] : ['Games']),
                 ].map((h) => (
                   <th
@@ -366,6 +428,21 @@ export default function DraftHelper({ data }) {
                         ({r.global.wins}-{r.global.losses})
                       </span>
                     </td>
+                    {selectedLineup && (
+                      <td
+                        className="py-1.5 border-b font-medium"
+                        style={{
+                          borderColor: 'var(--color-border)',
+                          color: lineupMapStats[r.map]?.games >= 2
+                            ? getStatColor(lineupMapStats[r.map].winPct, 'winPct')
+                            : 'var(--color-text-muted)',
+                        }}
+                      >
+                        {lineupMapStats[r.map]?.games >= 2
+                          ? <>{lineupMapStats[r.map].winPct.toFixed(0)}%<span className="text-xs ml-1" style={{ color: 'var(--color-text-muted)' }}>({lineupMapStats[r.map].wins}-{lineupMapStats[r.map].losses})</span></>
+                          : '\u2014'}
+                      </td>
+                    )}
                     {selectedOpp ? (
                       <>
                         <td

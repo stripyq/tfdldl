@@ -23,7 +23,7 @@ function ratioColor(f, a) {
 }
 
 export default function OpponentMatrix({ data, onNavigateMatchLog, initialOpponent }) {
-  const { teamMatchRows, focusTeam } = data;
+  const { teamMatchRows, focusTeam, lineupStats } = data;
 
   // ── Opponent Matrix (H2H dataset) ──────────────────────────────
 
@@ -116,6 +116,32 @@ export default function OpponentMatrix({ data, onNavigateMatchLog, initialOppone
   }, [focusRows]);
 
   const [selectedOpp, setSelectedOpp] = useState(initialOpponent?.opponent || '');
+  const [selectedLineup, setSelectedLineup] = useState('');
+
+  // Available lineups for selector (min 2 games)
+  const lineupOptions = useMemo(() => {
+    if (!lineupStats) return [];
+    return lineupStats
+      .filter((l) => l.games >= 2)
+      .sort((a, b) => b.games - a.games);
+  }, [lineupStats]);
+
+  // Per-map stats for selected lineup
+  const lineupMapStats = useMemo(() => {
+    if (!selectedLineup) return {};
+    const stats = {};
+    for (const r of focusRows) {
+      if (r.lineup_key !== selectedLineup) continue;
+      if (!stats[r.map]) stats[r.map] = { games: 0, wins: 0, losses: 0 };
+      stats[r.map].games++;
+      if (r.result === 'W') stats[r.map].wins++;
+      if (r.result === 'L') stats[r.map].losses++;
+    }
+    for (const s of Object.values(stats)) {
+      s.winPct = s.games > 0 ? (s.wins / s.games) * 100 : 0;
+    }
+    return stats;
+  }, [focusRows, selectedLineup]);
 
   const globalMapStats = useMemo(() => {
     const stats = {};
@@ -275,10 +301,16 @@ export default function OpponentMatrix({ data, onNavigateMatchLog, initialOppone
     return '';
   }
 
-  const draftExportData = tableRows.map((r) => ({
+  const draftExportData = tableRows.map((r) => {
+    const lu = lineupMapStats[r.map];
+    return {
     map: r.map,
     wb_global_win_pct: r.global.winPct.toFixed(1),
     wb_global_record: `${r.global.wins}W-${r.global.losses}L`,
+    ...(selectedLineup ? {
+      lineup_win_pct: lu?.games >= 2 ? lu.winPct.toFixed(1) : '',
+      lineup_record: lu?.games >= 2 ? `${lu.wins}W-${lu.losses}L` : '',
+    } : {}),
     flags_ratio_h2h: r.h2h ? fmtRatio(r.h2h.flagsFor, r.h2h.flagsAgainst) : '',
     flags_ratio_global: fmtRatio(r.global.flagsFor || 0, r.global.flagsAgainst || 0),
     wb_vs_opp_win_pct: r.h2hWinPct !== null ? r.h2hWinPct.toFixed(1) : '',
@@ -286,7 +318,7 @@ export default function OpponentMatrix({ data, onNavigateMatchLog, initialOppone
     opp_global_win_pct: r.oppGlobal ? r.oppGlobal.winPct.toFixed(1) : '',
     opp_global_record: r.oppGlobal ? `${r.oppGlobal.wins}W-${r.oppGlobal.losses}L` : '',
     recommendation: recLabel(r.rec),
-  }));
+  };});
 
   // ── Render ─────────────────────────────────────────────────────
 
@@ -433,29 +465,58 @@ export default function OpponentMatrix({ data, onNavigateMatchLog, initialOppone
           )}
         </div>
 
-        {/* Opponent selector */}
-        <div className="mb-6">
-          <label
-            className="text-sm block mb-1"
-            style={{ color: 'var(--color-text-muted)' }}
-          >
-            Select Opponent
-          </label>
-          <select
-            value={selectedOpp}
-            onChange={(e) => setSelectedOpp(e.target.value)}
-            className="px-3 py-2 rounded text-sm"
-            style={{
-              backgroundColor: 'var(--color-surface)',
-              color: 'var(--color-text)',
-              border: '1px solid var(--color-border)',
-            }}
-          >
-            <option value="">— choose opponent —</option>
-            {draftOpponents.map((opp) => (
-              <option key={opp} value={opp}>{opp}</option>
-            ))}
-          </select>
+        {/* Opponent + lineup selectors */}
+        <div className="flex flex-wrap gap-4 mb-6">
+          <div>
+            <label
+              className="text-sm block mb-1"
+              style={{ color: 'var(--color-text-muted)' }}
+            >
+              Select Opponent
+            </label>
+            <select
+              value={selectedOpp}
+              onChange={(e) => setSelectedOpp(e.target.value)}
+              className="px-3 py-2 rounded text-sm"
+              style={{
+                backgroundColor: 'var(--color-surface)',
+                color: 'var(--color-text)',
+                border: '1px solid var(--color-border)',
+              }}
+            >
+              <option value="">— choose opponent —</option>
+              {draftOpponents.map((opp) => (
+                <option key={opp} value={opp}>{opp}</option>
+              ))}
+            </select>
+          </div>
+          {lineupOptions.length > 0 && (
+            <div>
+              <label
+                className="text-sm block mb-1"
+                style={{ color: 'var(--color-text-muted)' }}
+              >
+                Lineup Filter
+              </label>
+              <select
+                value={selectedLineup}
+                onChange={(e) => setSelectedLineup(e.target.value)}
+                className="px-3 py-2 rounded text-sm"
+                style={{
+                  backgroundColor: 'var(--color-surface)',
+                  color: 'var(--color-text)',
+                  border: '1px solid var(--color-border)',
+                }}
+              >
+                <option value="">— all lineups —</option>
+                {lineupOptions.map((l) => (
+                  <option key={l.lineup_key} value={l.lineup_key}>
+                    {l.player_names.join(' \u00B7 ')} ({l.games}g)
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
         {/* No opponent selected */}
@@ -541,7 +602,7 @@ export default function OpponentMatrix({ data, onNavigateMatchLog, initialOppone
               <table className="w-full text-sm">
                 <thead>
                   <tr>
-                    {['Map', 'wB Global W%', 'F.Ratio', 'wB vs Opp W%', 'wB vs Opp Record', 'Opp Global W%', 'Opp Global Record', 'Rec'].map((h) => (
+                    {['Map', 'wB Global W%', ...(selectedLineup ? ['Lineup W%'] : []), 'F.Ratio', 'wB vs Opp W%', 'wB vs Opp Record', 'Opp Global W%', 'Opp Global Record', 'Rec'].map((h) => (
                       <th
                         key={h}
                         className="text-left pb-2 border-b font-medium"
@@ -572,6 +633,21 @@ export default function OpponentMatrix({ data, onNavigateMatchLog, initialOppone
                             ({r.global.wins}-{r.global.losses})
                           </span>
                         </td>
+                        {selectedLineup && (
+                          <td
+                            className="py-1.5 border-b font-medium"
+                            style={{
+                              borderColor: 'var(--color-border)',
+                              color: lineupMapStats[r.map]?.games >= 2
+                                ? getStatColor(lineupMapStats[r.map].winPct, 'winPct')
+                                : 'var(--color-text-muted)',
+                            }}
+                          >
+                            {lineupMapStats[r.map]?.games >= 2
+                              ? <>{lineupMapStats[r.map].winPct.toFixed(0)}%<span className="text-xs ml-1" style={{ color: 'var(--color-text-muted)' }}>({lineupMapStats[r.map].wins}-{lineupMapStats[r.map].losses})</span></>
+                              : '\u2014'}
+                          </td>
+                        )}
                         <td
                           className="py-1.5 border-b font-medium"
                           style={{
