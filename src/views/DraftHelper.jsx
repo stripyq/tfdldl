@@ -157,7 +157,7 @@ export default function DraftHelper({ data }) {
     const candidates = tableRows
       .filter((r) => r.oppGlobal && r.oppGlobal.games >= MIN_H2H)
       .sort((a, b) => b.oppGlobal.winPct - a.oppGlobal.winPct);
-    if (candidates.length > 0 && candidates[0].oppGlobal.winPct > 50) {
+    if (candidates.length > 0) {
       return { map: candidates[0].map, pct: candidates[0].oppGlobal.winPct };
     }
     return null;
@@ -173,16 +173,16 @@ export default function DraftHelper({ data }) {
       parts.push(`Pick: ${bestPick.map} (you ${bestPick.pct.toFixed(0)}%${oppPart})`);
     }
     if (ban) {
-      // Show our win% on this map too
-      const ourStat = globalMapStats[ban.map];
-      const ourPart = ourStat ? `you ${ourStat.winPct.toFixed(0)}%, ` : '';
-      parts.push(`Ban: ${ban.map} (${ourPart}them ${ban.pct.toFixed(0)}%)`);
+      parts.push(`Ban: ${ban.map} (them ${ban.pct.toFixed(0)}%)`);
     }
-    if (safePick && safePick.map !== bestPick?.map) {
+    if (veto) {
+      parts.push(`Avoid: ${veto.map} (you ${veto.pct.toFixed(0)}%)`);
+    }
+    if (safePick) {
       parts.push(`Safe: ${safePick.map} (you ${safePick.pct.toFixed(0)}%)`);
     }
     return parts.join('. ') + '.';
-  }, [selectedOpp, bestPick, ban, safePick, oppGlobalMapStats, globalMapStats]);
+  }, [selectedOpp, bestPick, ban, veto, safePick, oppGlobalMapStats]);
 
   function recColor(rec) {
     if (rec === 'pick') return 'var(--color-win)';
