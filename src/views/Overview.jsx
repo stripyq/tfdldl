@@ -275,7 +275,7 @@ export default function Overview({ data, onNavigateMatchLog, onNavigateOpponent,
 
     // All fixtures involving the focus team
     const myFixtures = schedule.filter(
-      (f) => f.team_a === focusTeam || f.team_b === focusTeam
+      (f) => f.home === focusTeam || f.away === focusTeam
     );
     if (myFixtures.length === 0) return null;
 
@@ -287,22 +287,22 @@ export default function Overview({ data, onNavigateMatchLog, onNavigateOpponent,
 
     // Build fixture rows with result lookup from seriesData
     const fixtureRows = myFixtures.map((f) => {
-      const opponent = f.team_a === focusTeam ? f.team_b : f.team_a;
+      const opponent = f.home === focusTeam ? f.away : f.home;
       const hasData = knownOpponents.has(opponent);
-      const isPast = f.date <= today;
+      const isPast = (f.date_end || f.date_start) <= today;
 
-      // Try to find a series result for this opponent on/near this date
+      // Try to find a series result for this opponent within the round window
       let result = null;
       if (seriesData?.allSeries) {
         const matchingSeries = seriesData.allSeries.filter(
-          (s) => s.opponent === opponent && s.date === f.date
+          (s) => s.opponent === opponent && s.date >= f.date_start && s.date <= (f.date_end || f.date_start)
         );
         if (matchingSeries.length === 1 && matchingSeries[0].quality === 'OK') {
           result = matchingSeries[0].outcome;
         }
       }
 
-      return { round: f.round, date: f.date, opponent, hasData, isPast, result };
+      return { round: f.round, date: f.date_start, dateEnd: f.date_end, opponent, hasData, isPast, result };
     });
 
     // Find next match (first future fixture)
@@ -345,7 +345,7 @@ export default function Overview({ data, onNavigateMatchLog, onNavigateOpponent,
                   R{scheduleData.nextMatch.round}: vs {scheduleData.nextMatch.opponent}
                 </span>
                 <span className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
-                  {scheduleData.nextMatch.date}
+                  {scheduleData.nextMatch.date}{scheduleData.nextMatch.dateEnd ? ` \u2013 ${scheduleData.nextMatch.dateEnd}` : ''}
                 </span>
                 {scheduleData.nextMatch.hasData ? (
                   <span
@@ -419,7 +419,7 @@ export default function Overview({ data, onNavigateMatchLog, onNavigateOpponent,
                         R{f.round}
                       </td>
                       <td className="py-1.5 border-b" style={{ borderColor: 'var(--color-border)' }}>
-                        {f.date}
+                        {f.date}{f.dateEnd ? ` \u2013 ${f.dateEnd}` : ''}
                       </td>
                       <td className="py-1.5 border-b font-medium" style={{ borderColor: 'var(--color-border)' }}>
                         {f.opponent}

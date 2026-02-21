@@ -10,42 +10,42 @@
   "season_end": "2026-05-17",
   "teams": [
     "wAnnaBees", "Czesnecka", "GdeFlag?", "Old Sexy Quakers",
-    "Quad Runners", "RocketScience", "FragBait", "Shaft Heroes"
+    "SHREKTALIKA", "Aimdead brainers", "Le Cubanitos", "Astral Starlight"
   ],
   "schedule": [
-    { "round": 1, "date": "2026-02-23", "team_a": "wAnnaBees", "team_b": "Shaft Heroes" },
-    { "round": 1, "date": "2026-02-23", "team_a": "Czesnecka", "team_b": "FragBait" },
-    { "round": 1, "date": "2026-02-23", "team_a": "GdeFlag?", "team_b": "RocketScience" },
-    { "round": 1, "date": "2026-02-23", "team_a": "Old Sexy Quakers", "team_b": "Quad Runners" },
+    { "round": 1, "date_start": "2026-02-23", "date_end": "2026-03-01", "home": "SHREKTALIKA", "away": "wAnnaBees" },
+    { "round": 1, "date_start": "2026-02-23", "date_end": "2026-03-01", "home": "Le Cubanitos", "away": "Aimdead brainers" },
+    { "round": 1, "date_start": "2026-02-23", "date_end": "2026-03-01", "home": "GdeFlag?", "away": "Czesnecka" },
+    { "round": 1, "date_start": "2026-02-23", "date_end": "2026-03-01", "home": "Astral Starlight", "away": "Old Sexy Quakers" },
 
-    { "round": 2, "date": "2026-03-02", "team_a": "wAnnaBees", "team_b": "FragBait" },
-    { "round": 2, "date": "2026-03-02", "team_a": "Shaft Heroes", "team_b": "RocketScience" },
-    { "round": 2, "date": "2026-03-02", "team_a": "Czesnecka", "team_b": "Quad Runners" },
-    { "round": 2, "date": "2026-03-02", "team_a": "GdeFlag?", "team_b": "Old Sexy Quakers" },
+    { "round": 2, "date_start": "2026-03-02", "date_end": "2026-03-08", "home": "Czesnecka", "away": "wAnnaBees" },
+    { "round": 2, "date_start": "2026-03-02", "date_end": "2026-03-08", "home": "Le Cubanitos", "away": "GdeFlag?" },
+    { "round": 2, "date_start": "2026-03-02", "date_end": "2026-03-08", "home": "Astral Starlight", "away": "SHREKTALIKA" },
+    { "round": 2, "date_start": "2026-03-02", "date_end": "2026-03-08", "home": "Old Sexy Quakers", "away": "Aimdead brainers" },
 
-    { "round": 3, "date": "2026-03-09", "team_a": "wAnnaBees", "team_b": "RocketScience" },
-    { "round": 3, "date": "2026-03-09", "team_a": "FragBait", "team_b": "Quad Runners" },
-    { "round": 3, "date": "2026-03-09", "team_a": "Shaft Heroes", "team_b": "Old Sexy Quakers" },
-    { "round": 3, "date": "2026-03-09", "team_a": "Czesnecka", "team_b": "GdeFlag?" },
+    { "round": 3, "date_start": "2026-03-09", "date_end": "2026-03-15", "home": "wAnnaBees", "away": "Aimdead brainers" },
+    { "round": 3, "date_start": "2026-03-09", "date_end": "2026-03-15", "home": "Le Cubanitos", "away": "Astral Starlight" },
+    { "round": 3, "date_start": "2026-03-09", "date_end": "2026-03-15", "home": "Old Sexy Quakers", "away": "GdeFlag?" },
+    { "round": 3, "date_start": "2026-03-09", "date_end": "2026-03-15", "home": "Czesnecka", "away": "SHREKTALIKA" },
 
-    { "round": 4, "date": "2026-03-23", "team_a": "wAnnaBees", "team_b": "Quad Runners" },
-    { "round": 4, "date": "2026-03-23", "team_a": "RocketScience", "team_b": "Old Sexy Quakers" },
-    { "round": 4, "date": "2026-03-23", "team_a": "FragBait", "team_b": "GdeFlag?" },
-    { "round": 4, "date": "2026-03-23", "team_a": "Shaft Heroes", "team_b": "Czesnecka" },
+    { "round": 4, "date_start": "2026-03-16", "date_end": "2026-03-29", "home": "Le Cubanitos", "away": "wAnnaBees" },
+    { "round": 4, "date_start": "2026-03-16", "date_end": "2026-03-29", "home": "Aimdead brainers", "away": "Czesnecka" },
+    { "round": 4, "date_start": "2026-03-16", "date_end": "2026-03-29", "home": "SHREKTALIKA", "away": "Old Sexy Quakers" },
+    { "round": 4, "date_start": "2026-03-16", "date_end": "2026-03-29", "home": "GdeFlag?", "away": "Astral Starlight" },
 
-    { "round": 5, "date": "2026-04-06", "team_a": "wAnnaBees", "team_b": "Old Sexy Quakers" },
-    { "round": 5, "date": "2026-04-06", "team_a": "Quad Runners", "team_b": "GdeFlag?" },
-    { "round": 5, "date": "2026-04-06", "team_a": "RocketScience", "team_b": "Czesnecka" },
-    { "round": 5, "date": "2026-04-06", "team_a": "FragBait", "team_b": "Shaft Heroes" },
+    { "round": 5, "date_start": "2026-03-30", "date_end": "2026-04-12", "home": "wAnnaBees", "away": "Old Sexy Quakers" },
+    { "round": 5, "date_start": "2026-03-30", "date_end": "2026-04-12", "home": "Le Cubanitos", "away": "Czesnecka" },
+    { "round": 5, "date_start": "2026-03-30", "date_end": "2026-04-12", "home": "Aimdead brainers", "away": "Astral Starlight" },
+    { "round": 5, "date_start": "2026-03-30", "date_end": "2026-04-12", "home": "SHREKTALIKA", "away": "GdeFlag?" },
 
-    { "round": 6, "date": "2026-04-20", "team_a": "wAnnaBees", "team_b": "GdeFlag?" },
-    { "round": 6, "date": "2026-04-20", "team_a": "Old Sexy Quakers", "team_b": "Czesnecka" },
-    { "round": 6, "date": "2026-04-20", "team_a": "Quad Runners", "team_b": "Shaft Heroes" },
-    { "round": 6, "date": "2026-04-20", "team_a": "RocketScience", "team_b": "FragBait" },
+    { "round": 6, "date_start": "2026-04-13", "date_end": "2026-04-19", "home": "Astral Starlight", "away": "wAnnaBees" },
+    { "round": 6, "date_start": "2026-04-13", "date_end": "2026-04-19", "home": "Le Cubanitos", "away": "SHREKTALIKA" },
+    { "round": 6, "date_start": "2026-04-13", "date_end": "2026-04-19", "home": "GdeFlag?", "away": "Aimdead brainers" },
+    { "round": 6, "date_start": "2026-04-13", "date_end": "2026-04-19", "home": "Old Sexy Quakers", "away": "Czesnecka" },
 
-    { "round": 7, "date": "2026-05-04", "team_a": "wAnnaBees", "team_b": "Czesnecka" },
-    { "round": 7, "date": "2026-05-04", "team_a": "GdeFlag?", "team_b": "Shaft Heroes" },
-    { "round": 7, "date": "2026-05-04", "team_a": "Old Sexy Quakers", "team_b": "FragBait" },
-    { "round": 7, "date": "2026-05-04", "team_a": "Quad Runners", "team_b": "RocketScience" }
+    { "round": 7, "date_start": "2026-04-20", "date_end": "2026-04-26", "home": "wAnnaBees", "away": "Aimdead brainers" },
+    { "round": 7, "date_start": "2026-04-20", "date_end": "2026-04-26", "home": "Le Cubanitos", "away": "Old Sexy Quakers" },
+    { "round": 7, "date_start": "2026-04-20", "date_end": "2026-04-26", "home": "SHREKTALIKA", "away": "GdeFlag?" },
+    { "round": 7, "date_start": "2026-04-20", "date_end": "2026-04-26", "home": "Astral Starlight", "away": "Czesnecka" }
   ]
 }
