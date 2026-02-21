@@ -38,5 +38,23 @@
     "enemy_notes": "makie on japan is doing same 99% time, going low with flag then switch to connector and rocketjumps across high.",
     "our_adjustments": "",
     "tags": []
+  },
+  {
+    "match_id": "138cf6fc-4ea9-4a20-aa85-137189e4f5c3",
+    "date_local": "2026-02-06",
+    "map": "japanesecastles",
+    "comment": "",
+    "enemy_notes": "conclusion from spartie is they need to play 3 att and one def",
+    "our_adjustments": "",
+    "tags": []
+  },
+  {
+    "match_id": "3bbbdc14-6e77-4607-8f34-676e691f2f9c",
+    "date_local": "2026-02-02",
+    "map": "japanesecastles",
+    "comment": "Maybe we shouldn't be playing 3 att with the delay PU tactic. Since with 10-15 seconds of setup for home pu and 45-50 seconds of total PU it's only half the time that we're attacking in a non-pu situation. So do normal 2+2 until pu and then 3+1 with pu. we should also consider delaying our own pu too mid game or something, if we're leading to sync the pu back up.",
+    "enemy_notes": "",
+    "our_adjustments": "",
+    "tags": []
   }
 ]
