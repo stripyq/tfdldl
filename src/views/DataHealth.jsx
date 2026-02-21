@@ -26,6 +26,8 @@ export default function DataHealth({ data }) {
     pairLookupMisses,
     aliasCollisions,
     registryIntegrity,
+    manualMatchCount,
+    manualMatchSources,
     pairStats,
     lineupStats,
     scopeDate,
@@ -107,6 +109,7 @@ export default function DataHealth({ data }) {
             ['4v4', all4v4.length],
             ['Non-4v4', allNon4v4.length],
             ['Scoped 4v4', scoped4v4.length],
+            [`Manual entries${manualMatchSources?.length ? ` (${manualMatchSources.join(', ')})` : ''}`, manualMatchCount ?? 0],
           ]}
           headers={['Category', 'Count']}
         />

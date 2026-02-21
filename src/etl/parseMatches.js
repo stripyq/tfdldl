@@ -143,7 +143,7 @@ function resolvePlayer(nick, aliasMap, normalizeNick) {
 
 /**
  * Main parse function.
- * @param {Array} rawMatches - raw JSON array from qllr export
+ * @param {Array} rawMatches - raw JSON array from qllr export + optional manual matches
  * @param {Array} playerRegistry - player_registry.json contents
  * @param {Object} teamConfig - team_config.json (needs clan_tag_patterns)
  * @returns {{ matches: Array, playerRows: Array, unresolvedPlayers: Set }}
@@ -157,14 +157,39 @@ export function parseMatches(rawMatches, playerRegistry, teamConfig) {
   let durationParseErrors = 0;
 
   for (const raw of rawMatches) {
+    const isManual = !!raw.manual;
     const matchId = raw.match_id;
+
     const durationSec = parseDuration(raw.duration);
     if (durationSec === null) {
       durationParseErrors++;
     }
     const durationMin = durationSec !== null ? durationSec / 60 : null;
-    const [scoreRed, scoreBlue] = parseScores(raw.scores);
-    const { datetime_local, date_local } = toLocal(raw.played_at);
+
+    // Manual matches have score_red/score_blue directly; qllr has "3 : 4" string
+    let scoreRed, scoreBlue;
+    if (isManual) {
+      scoreRed = raw.score_red ?? 0;
+      scoreBlue = raw.score_blue ?? 0;
+    } else {
+      [scoreRed, scoreBlue] = parseScores(raw.scores);
+    }
+
+    // Manual matches have ISO date_utc; qllr has "YYYY-MM-DD HH:MM UTC"
+    let datetime_local, date_local;
+    if (isManual && raw.date_utc) {
+      const d = new Date(raw.date_utc);
+      if (!isNaN(d.getTime())) {
+        date_local = dtfDate.format(d);
+        const time_local = dtfTime.format(d);
+        datetime_local = `${date_local} ${time_local}`;
+      } else {
+        datetime_local = null;
+        date_local = null;
+      }
+    } else {
+      ({ datetime_local, date_local } = toLocal(raw.played_at));
+    }
 
     let winnerSide = 'draw';
     if (scoreRed > scoreBlue) winnerSide = 'red';
@@ -176,10 +201,10 @@ export function parseMatches(rawMatches, playerRegistry, teamConfig) {
 
     const match = {
       match_id: matchId,
-      datetime_utc: raw.played_at,
+      datetime_utc: isManual ? (raw.date_utc || null) : raw.played_at,
       datetime_local,
       date_local,
-      map: raw.arena,
+      map: isManual ? raw.map : raw.arena,
       duration_sec: durationSec,
       duration_min: durationMin,
       score_red: scoreRed,
@@ -188,7 +213,9 @@ export function parseMatches(rawMatches, playerRegistry, teamConfig) {
       player_count_red: redPlayers.length,
       player_count_blue: bluePlayers.length,
       is_4v4: redPlayers.length === 4 && bluePlayers.length === 4,
-      url: `https://qllr.xyz/scoreboard/${matchId}`,
+      manual: isManual,
+      source: isManual ? (raw.source || 'manual') : 'qllr',
+      url: isManual ? null : `https://qllr.xyz/scoreboard/${matchId}`,
       // These will be filled by classifySides
       team_red: null,
       team_blue: null,
@@ -205,28 +232,31 @@ export function parseMatches(rawMatches, playerRegistry, teamConfig) {
 
     // Process each player in the match
     for (const p of playersArr) {
-      const { canonical, steam_id, resolved } = resolvePlayer(p.Nick, aliasMap, normalizeNick);
+      // Manual matches use lowercase field names; qllr uses PascalCase
+      const nick = isManual ? p.nick : p.Nick;
+      const { canonical, steam_id, resolved } = resolvePlayer(nick, aliasMap, normalizeNick);
       if (!resolved) {
-        unresolvedPlayers.add(p.Nick);
+        unresolvedPlayers.add(nick);
       }
 
-      const dmg = p.Damage || {};
-      const dmgDealt = p.DamageDealt || 0;
+      const dmg = (isManual ? null : p.Damage) || {};
+      const dmgDealt = isManual ? (p.damage_dealt || 0) : (p.DamageDealt || 0);
+      const dmgTaken = isManual ? (p.damage_taken || 0) : (p.DamageTaken || 0);
 
       playerRows.push({
         match_id: matchId,
         side: p.team,
-        raw_nick: p.Nick,
+        raw_nick: nick,
         canonical,
         steam_id,
         resolved,
         frags: p.frags || 0,
         deaths: p.deaths || 0,
-        caps: p.captures || 0,
+        caps: (isManual ? p.captures : p.captures) || 0,
         assists: p.assists || 0,
         defends: p.defends || 0,
         dmg_dealt: dmgDealt,
-        dmg_taken: p.DamageTaken || 0,
+        dmg_taken: dmgTaken,
         score: p.score || 0,
         mg: dmg.MG || 0,
         sg: dmg.SG || 0,
@@ -235,10 +265,10 @@ export function parseMatches(rawMatches, playerRegistry, teamConfig) {
         rg: dmg.RG || 0,
         lg: dmg.LG || 0,
         pg: dmg.PG || 0,
-        accuracy_sa: parseAccuracy(p.Accuracy),
-        old_rating: p.OldRating ?? null,
-        new_rating: p.NewRating ?? null,
-        rating_diff: p.Diff ?? null,
+        accuracy_sa: isManual ? null : parseAccuracy(p.Accuracy),
+        old_rating: isManual ? null : (p.OldRating ?? null),
+        new_rating: isManual ? null : (p.NewRating ?? null),
+        rating_diff: isManual ? null : (p.Diff ?? null),
         // Will be filled by resolveTeams
         team_membership: null,
         // Will be filled by computeStats

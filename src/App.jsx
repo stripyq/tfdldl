@@ -122,19 +122,21 @@ export default function App() {
     async function loadConfigs() {
       try {
         const base = import.meta.env.BASE_URL;
-        const [registryRes, teamConfigRes, rolesRes, notesRes, leagueRes] = await Promise.all([
+        const [registryRes, teamConfigRes, rolesRes, notesRes, leagueRes, manualMatchesRes] = await Promise.all([
           fetch(`${base}data/player_registry.json`),
           fetch(`${base}data/team_config.json`),
           fetch(`${base}data/manual_roles.json`),
           fetch(`${base}data/match_notes.json`),
           fetch(`${base}data/league_config.json`),
+          fetch(`${base}data/manual_matches.json`),
         ]);
         const playerRegistry = await registryRes.json();
         const teamConfig = await teamConfigRes.json();
         const manualRoles = await rolesRes.json();
         const matchNotes = await notesRes.json();
         const leagueConfig = leagueRes.ok ? await leagueRes.json() : null;
-        const loadedConfigs = { playerRegistry, teamConfig, manualRoles, leagueConfig };
+        const manualMatches = manualMatchesRes.ok ? await manualMatchesRes.json() : [];
+        const loadedConfigs = { playerRegistry, teamConfig, manualRoles, leagueConfig, manualMatches };
         setConfigs(loadedConfigs);
         setLoadedNotes(Array.isArray(matchNotes) ? matchNotes : []);
 
@@ -144,7 +146,7 @@ export default function App() {
           if (defaultRes.ok) {
             const rawJson = await defaultRes.json();
             if (Array.isArray(rawJson) && rawJson.length > 0) {
-              const result = processData(rawJson, loadedConfigs.playerRegistry, loadedConfigs.teamConfig, loadedConfigs.manualRoles);
+              const result = processData(rawJson, loadedConfigs.playerRegistry, loadedConfigs.teamConfig, loadedConfigs.manualRoles, loadedConfigs.manualMatches);
               setData(result);
             }
           }
@@ -173,7 +175,8 @@ export default function App() {
           rawJson,
           configs.playerRegistry,
           configs.teamConfig,
-          configs.manualRoles
+          configs.manualRoles,
+          configs.manualMatches
         );
         setData(result);
       } catch (err) {
