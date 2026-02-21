@@ -13,18 +13,33 @@ import OpponentPlayers from './views/OpponentPlayers.jsx';
 import CloseGames from './views/CloseGames.jsx';
 import { processData } from './etl/index.js';
 
-const VIEWS = [
-  { id: 'overview', label: 'Overview' },
-  { id: 'maps', label: 'Map Strength' },
-  { id: 'lineups', label: 'Lineups' },
-  { id: 'players', label: 'Player Cards' },
-  { id: 'roles', label: 'Roles' },
-  { id: 'opponents', label: 'Opponents' },
-  { id: 'scouting', label: 'Scouting' },
-  { id: 'opp-players', label: 'Opp. Players' },
-  { id: 'close-games', label: 'Close Games' },
-  { id: 'matches', label: 'Match Log' },
-  { id: 'health', label: 'Data Health' },
+const VIEW_GROUPS = [
+  {
+    label: 'OUR TEAM',
+    views: [
+      { id: 'overview', label: 'Overview' },
+      { id: 'maps', label: 'Map Strength' },
+      { id: 'lineups', label: 'Lineups' },
+      { id: 'players', label: 'Player Cards' },
+      { id: 'roles', label: 'Roles' },
+      { id: 'close-games', label: 'Close Games' },
+    ],
+  },
+  {
+    label: 'OPPOSITION',
+    views: [
+      { id: 'opponents', label: 'Draft Helper' },
+      { id: 'scouting', label: 'Opp. Teams' },
+      { id: 'opp-players', label: 'Opp. Players' },
+    ],
+  },
+  {
+    label: 'DATA',
+    views: [
+      { id: 'matches', label: 'Match Log' },
+      { id: 'health', label: 'Data Health' },
+    ],
+  },
 ];
 
 export default function App() {
@@ -272,26 +287,42 @@ export default function App() {
       <div className="flex flex-1 min-h-0">
         {/* Sidebar */}
         <nav
-          className="w-48 shrink-0 border-r py-4 flex flex-col gap-1"
+          className="w-48 shrink-0 border-r py-4 flex flex-col"
           style={{
             backgroundColor: 'var(--color-surface)',
             borderColor: 'var(--color-border)',
           }}
         >
-          {VIEWS.map((v) => (
-            <button
-              key={v.id}
-              onClick={() => setActiveView(v.id)}
-              className="text-left text-sm px-5 py-2 cursor-pointer"
-              style={{
-                backgroundColor: activeView === v.id ? 'var(--color-surface-hover)' : 'transparent',
-                color: activeView === v.id ? 'var(--color-accent)' : 'var(--color-text-muted)',
-                fontWeight: activeView === v.id ? 600 : 400,
-                borderLeft: activeView === v.id ? '3px solid var(--color-accent)' : '3px solid transparent',
-              }}
-            >
-              {v.label}
-            </button>
+          {VIEW_GROUPS.map((group, gi) => (
+            <div key={group.label}>
+              {gi > 0 && (
+                <div
+                  className="mx-4 my-2 border-t"
+                  style={{ borderColor: 'var(--color-border)' }}
+                />
+              )}
+              <p
+                className="text-xs font-semibold tracking-wider px-5 pt-2 pb-1"
+                style={{ color: 'var(--color-text-muted)', opacity: 0.5 }}
+              >
+                {group.label}
+              </p>
+              {group.views.map((v) => (
+                <button
+                  key={v.id}
+                  onClick={() => setActiveView(v.id)}
+                  className="text-left text-sm px-5 py-2 cursor-pointer w-full"
+                  style={{
+                    backgroundColor: activeView === v.id ? 'var(--color-surface-hover)' : 'transparent',
+                    color: activeView === v.id ? 'var(--color-accent)' : 'var(--color-text-muted)',
+                    fontWeight: activeView === v.id ? 600 : 400,
+                    borderLeft: activeView === v.id ? '3px solid var(--color-accent)' : '3px solid transparent',
+                  }}
+                >
+                  {v.label}
+                </button>
+              ))}
+            </div>
           ))}
         </nav>
 
