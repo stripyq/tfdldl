@@ -1,1 +1,42 @@
-[]
+[
+  {
+    "match_id": "ca9c8e83-350c-47a1-bf5f-ffd28baa3d48",
+    "date_local": "2026-02-03",
+    "map": "ironworks",
+    "comment": "",
+    "enemy_notes": "Ironworks went to be one of their strongest maps after they got iceman. Mastermind was camping at our medkit side with rail when jcb come out of water. Shrektalika had too much high control on iron, and fo_tbh couldn't get enemy RA control to force them back.",
+    "our_adjustments": "Dont block our enemy ra player on first spawn.",
+    "formation": "1def-3off",
+    "rotation_style": "Rigid",
+    "tags": []
+  },
+  {
+    "match_id": "8ab48943-cab8-417f-9435-c6d25b3760ef",
+    "date_local": "2026-02-03",
+    "map": "infinity",
+    "comment": "",
+    "enemy_notes": "spartie weak side is right side",
+    "our_adjustments": "We should be playing super sneaky but letting them know about it-  like jcb or stripy with medkit going water, getting spotted, circling, spotted, circling.  Keep spartie on his flag spot",
+    "tags": []
+  },
+  {
+    "match_id": "23903df2-70e0-4547-922f-91254db71e46",
+    "date_local": "2026-02-03",
+    "map": "japanesecastles",
+    "comment": "",
+    "enemy_notes": "",
+    "our_adjustments": "maybe we should try standard 2+2 tactic vs them next time, but last season where they had linkin the 2+2 was really not working for us.",
+    "formation": "1def-3off",
+    "rotation_style": "Dynamic",
+    "tags": []
+  },
+  {
+    "match_id": "558ba5ec-6f1e-4530-af9a-b984dc8a0142",
+    "date_local": "2026-02-14",
+    "map": "japanesecastles",
+    "comment": "",
+    "enemy_notes": "makie on japan is doing same 99% time, going low with flag then switch to connector and rocketjumps across high.",
+    "our_adjustments": "",
+    "tags": []
+  }
+]
